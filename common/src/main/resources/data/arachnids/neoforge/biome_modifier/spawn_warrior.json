@@ -1,0 +1,10 @@
+{
+  "type": "arachnids:mobspawns",
+  "biomes": "#arachnids:spawns_arachnids",
+  "spawn": {
+    "type": "arachnids:warrior",
+    "maxCount": 4,
+    "minCount": 1,
+    "weight": 20
+  }
+}

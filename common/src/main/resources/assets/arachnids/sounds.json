@@ -1,0 +1,254 @@
+{
+	"arachnids.chariot_death": {
+		"sounds": [
+			{
+				"name": "arachnids:chariot_death"
+			}
+		]
+	},
+	"arachnids.chariot_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:chariot_hurt"
+			}
+		]
+	},
+	"arachnids.chariot_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:chariot_idle"
+			}
+		]
+	},
+	"arachnids.chariot_moving": {
+		"sounds": [
+			{
+				"name": "arachnids:chariot_moving"
+			}
+		]
+	},
+	"arachnids.brainbug_death": {
+		"sounds": [
+			{
+				"name": "arachnids:brainbug_death"
+			}
+		]
+	},
+	"arachnids.brainbug_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:brainbug_hurt"
+			}
+		]
+	},
+	"arachnids.brainbug_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:brainbug_idle"
+			}
+		]
+	},
+	"arachnids.hopper_death": {
+		"sounds": [
+			{
+				"name": "arachnids:hopper_death"
+			}
+		]
+	},
+	"arachnids.hopper_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:hopper_hurt"
+			}
+		]
+	},
+	"arachnids.hopper_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:hopper_idle"
+			}
+		]
+	},
+	"arachnids.hopper_moving": {
+		"sounds": [
+			{
+				"name": "arachnids:hopper_moving"
+			}
+		]
+	},
+	"arachnids.tanker_death": {
+		"sounds": [
+			{
+				"name": "arachnids:tanker_death"
+			}
+		]
+	},
+	"arachnids.plasma_attack": {
+		"sounds": [
+			{
+				"name": "arachnids:plasma_attack"
+			}
+		]
+	},
+	"arachnids.plasma_death": {
+		"sounds": [
+			{
+				"name": "arachnids:plasma_death"
+			}
+		]
+	},
+	"arachnids.plasma_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:plasma_hurt"
+			}
+		]
+	},
+	"arachnids.plasma_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:plasma_idle"
+			}
+		]
+	},
+	"arachnids.plasma_moving": {
+		"sounds": [
+			{
+				"name": "arachnids:plasma_moving"
+			}
+		]
+	},
+	"arachnids.scorpion_death": {
+		"sounds": [
+			{
+				"name": "arachnids:scorpion_death"
+			}
+		]
+	},
+	"arachnids.scorpion_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:scorpion_hurt"
+			}
+		]
+	},
+	"arachnids.scorpion_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:scorpion_idle"
+			}
+		]
+	},
+	"arachnids.scorpion_moving": {
+		"sounds": [
+			{
+				"name": "arachnids:scorpion_moving"
+			}
+		]
+	},
+	"arachnids.scorpion_powerup": {
+		"sounds": [
+			{
+				"name": "arachnids:scorpion_powerup"
+			}
+		]
+	},
+	"arachnids.tanker_attack": {
+		"sounds": [
+			{
+				"name": "arachnids:tanker_attack"
+			}
+		]
+	},
+	"arachnids.worker_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:worker_idle"
+			}
+		]
+	},
+	"arachnids.tanker_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:tanker_hurt"
+			}
+		]
+	},
+	"arachnids.tanker_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:tanker_idle"
+			}
+		]
+	},
+	"arachnids.tanker_moving": {
+		"sounds": [
+			{
+				"name": "arachnids:tanker_moving"
+			}
+		]
+	},
+	"arachnids.tanker_powerup": {
+		"sounds": [
+			{
+				"name": "arachnids:tanker_powerup"
+			}
+		]
+	},
+	"arachnids.warrior_attack": {
+		"sounds": [
+			{
+				"name": "arachnids:warrior_attack"
+			}
+		]
+	},
+	"arachnids.warrior_death": {
+		"sounds": [
+			{
+				"name": "arachnids:warrior_death"
+			}
+		]
+	},
+	"arachnids.warrior_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:warrior_hurt"
+			}
+		]
+	},
+	"arachnids.warrior_idle": {
+		"sounds": [
+			{
+				"name": "arachnids:warrior_idle"
+			}
+		]
+	},
+	"arachnids.warrior_moving": {
+		"sounds": [
+			{
+				"name": "arachnids:warrior_moving"
+			}
+		]
+	},
+	"arachnids.worker_attack": {
+		"sounds": [
+			{
+				"name": "arachnids:worker_attack"
+			}
+		]
+	},
+	"arachnids.worker_death": {
+		"sounds": [
+			{
+				"name": "arachnids:worker_death"
+			}
+		]
+	},
+	"arachnids.worker_hurt": {
+		"sounds": [
+			{
+				"name": "arachnids:worker_hurt"
+			}
+		]
+	}
+}

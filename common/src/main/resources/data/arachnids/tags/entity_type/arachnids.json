@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "arachnids:warrior",
+    "arachnids:worker",
+    "arachnids:hopper",
+    "arachnids:chariot",
+    "arachnids:brainbug"
+  ]
+}
