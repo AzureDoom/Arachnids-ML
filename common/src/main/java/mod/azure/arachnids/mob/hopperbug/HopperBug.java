@@ -64,7 +64,7 @@ public class HopperBug extends Monster {
     @Override
     protected void tickDeath() {
         ++this.deathTime;
-        if (this.deathTime >= 80 && !this.level().isClientSide() && !this.isRemoved()) {
+        if (this.deathTime >= 40 && !this.level().isClientSide() && !this.isRemoved()) {
             this.level().broadcastEntityEvent(this, (byte) 60);
             this.remove(RemovalReason.KILLED);
         }
