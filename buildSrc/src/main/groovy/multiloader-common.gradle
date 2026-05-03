@@ -31,6 +31,7 @@ repositories {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com'
     }
+    maven { url "https://cfa2.cursemaven.com" }
     maven { url "https://maven.terraformersmc.com/" }
     maven { url "https://maven.terraformersmc.com/releases" } // modmenu
     maven { url 'https://maven.azuredoom.com/mods' }
