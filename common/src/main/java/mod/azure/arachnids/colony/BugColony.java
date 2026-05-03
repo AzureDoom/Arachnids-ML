@@ -92,7 +92,14 @@ public final class BugColony {
         virtualPop.setVirtualHoppers(0);
     }
 
-    void initialSpawn(ServerLevel level) {}
+    void initialSpawn(ServerLevel level) {
+        if (initialSpawnDone) {
+            return;
+        }
+
+        initialSpawnDone = true;
+        doInitialSpawn(level);
+    }
 
     private void doInitialSpawn(ServerLevel level) {
         for (var i = 0; i < MAX_CHARIOTS && !isAtActiveCap(); i++) {
@@ -260,15 +267,19 @@ public final class BugColony {
     }
 
     public boolean isAtActiveCap() {
-        int requiredCurrent =
+        int current =
             activeWorkers.size()
                 + activeWarriors.size()
-                + activeChariots.size();
+                + activeChariots.size()
+                + activeHoppers.size();
 
-        int requiredMax =
-            MAX_WORKERS + MAX_WARRIORS + MAX_CHARIOTS;
+        int max =
+            MAX_WORKERS
+                + MAX_WARRIORS
+                + MAX_CHARIOTS
+                + MAX_HOPPERS;
 
-        return requiredCurrent >= requiredMax;
+        return current >= max;
     }
 
     public BlockPos patrolCentre() {
