@@ -12,7 +12,7 @@ import mod.azure.arachnids.util.ModTags;
 
 public final class MovementUtils {
 
-    private static final double DEFAULT_LOOK_AHEAD = 3.5D;
+    private static final double DEFAULT_LOOK_AHEAD = 1.25D;
 
     private static final int[] STEER_ANGLES = { 30, -30, 60, -60, 90, -90, 120, -120, 150, -150 };
 
@@ -23,6 +23,21 @@ public final class MovementUtils {
         if (state.is(ModTags.DANGER_BLOCKS))
             return false;
         return !state.getFluidState().is(ModTags.DANGER_FLUIDS);
+    }
+
+    private static boolean hasGroundWithinDrop(Level level, BlockPos feetPos, int maxDrop) {
+        for (var drop = 1; drop <= maxDrop; drop++) {
+            var ground = feetPos.below(drop);
+
+            if (
+                !level.getBlockState(ground).getCollisionShape(level, ground).isEmpty()
+                    && isSafeBlock(level, ground)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static boolean isSafeAhead(Mob mob, Vec3 forward, double distance) {
@@ -38,14 +53,22 @@ public final class MovementUtils {
                 var sample = center.add(side.scale(s));
 
                 var feetPos = BlockPos.containing(sample.x, feetY, sample.z);
-                var groundPos = BlockPos.containing(sample.x, feetY - 0.5D, sample.z);
+                var groundPos = feetPos.below();
                 var headPos = feetPos.above();
 
                 if (!isSafeBlock(level, feetPos))
                     return false;
+
                 if (!isSafeBlock(level, headPos))
                     return false;
-                if (!isSafeBlock(level, groundPos))
+
+                if (!level.getBlockState(feetPos).getCollisionShape(level, feetPos).isEmpty())
+                    return false;
+
+                if (!level.getBlockState(headPos).getCollisionShape(level, headPos).isEmpty())
+                    return false;
+
+                if (!hasGroundWithinDrop(level, feetPos, 9))
                     return false;
 
                 if (level.getBlockState(feetPos).getFluidState().is(FluidTags.LAVA))

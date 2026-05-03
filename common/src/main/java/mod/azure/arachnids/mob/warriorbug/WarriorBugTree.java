@@ -33,6 +33,10 @@ public class WarriorBugTree {
 
         var patrol = new ColonyPatrolAction<>(30);
 
+        var wander = new WanderAction<WarriorBug>(0.18D, 5, 8.0D, 40, 120);
+
+        var idle = new IdleAction<WarriorBug>(30, 80, 5);
+
         return (bug, blackboard, cooldowns) -> {
 
             if (fleeExplosive.hasNearbyExplosive(bug)) {
@@ -55,7 +59,7 @@ public class WarriorBugTree {
                         return BehaviorResult.run(
                             new TimedAttackAction<>(
                                 "heavy_attack",
-                                80,
+                                40,
                                 17,
                                 10,
                                 110,
@@ -138,13 +142,13 @@ public class WarriorBugTree {
                                     order.destination(),
                                     3.5D,
                                     0.25D,
-                                    20,
+                                    25,
                                     5.0D,
                                     1.0D,
                                     0.55D,
                                     0.85D
                                 ),
-                                20
+                                25
                             );
                         }
                     }
@@ -153,7 +157,7 @@ public class WarriorBugTree {
                         return BehaviorResult.run(
                             new TimedAttackAction<>(
                                 "heavy_attack",
-                                80,
+                                40,
                                 17,
                                 10,
                                 100,
@@ -183,13 +187,13 @@ public class WarriorBugTree {
                                 order.destination(),
                                 2.5D,
                                 speed,
-                                20,
+                                25,
                                 5.0D,
                                 1.0D,
                                 0.55D,
                                 0.85D
                             ),
-                            20
+                            25
                         );
                     }
                     return BehaviorResult.run(
@@ -209,7 +213,7 @@ public class WarriorBugTree {
                     return BehaviorResult.run(
                         new TimedAttackAction<>(
                             "heavy_attack",
-                            80,
+                            40,
                             17,
                             10,
                             100,
@@ -242,9 +246,9 @@ public class WarriorBugTree {
             }
 
             if (bug.getRandom().nextFloat() < 0.35F) {
-                return BehaviorResult.run(new IdleAction<>(30, 80, 5), 5);
+                return BehaviorResult.run(idle, 5);
             }
-            return BehaviorResult.run(new WanderAction<>(0.18D, 5, 8.0D, 40, 120), 5);
+            return BehaviorResult.run(wander, 5);
         };
     }
 }

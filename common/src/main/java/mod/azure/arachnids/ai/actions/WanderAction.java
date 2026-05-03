@@ -62,7 +62,10 @@ public final class WanderAction<E extends Mob> implements Action<E> {
         age++;
 
         if (destination == null) {
-            return ActionStatus.FAILURE;
+            destination = findWanderDestination(mob);
+            if (destination == null) {
+                return ActionStatus.RUNNING;
+            }
         }
 
         var delta = destination.subtract(mob.position());
@@ -165,13 +168,14 @@ public final class WanderAction<E extends Mob> implements Action<E> {
     private boolean isSafeStandPosition(Level level, BlockPos feet, BlockPos head, BlockPos below) {
         if (!level.getBlockState(feet).getCollisionShape(level, feet).isEmpty())
             return false;
+
         if (!level.getBlockState(head).getCollisionShape(level, head).isEmpty())
             return false;
+
         if (level.getBlockState(below).getCollisionShape(level, below).isEmpty())
             return false;
 
         return MovementUtils.isSafeBlock(level, feet)
-            && MovementUtils.isSafeBlock(level, head)
-            && MovementUtils.isSafeBlock(level, below);
+            && MovementUtils.isSafeBlock(level, head);
     }
 }
