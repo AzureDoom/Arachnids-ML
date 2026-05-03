@@ -38,6 +38,11 @@ public class WarriorBugTree {
         var idle = new IdleAction<WarriorBug>(30, 80, 5);
 
         return (bug, blackboard, cooldowns) -> {
+            var currentTarget = blackboard.get(AiKeys.TARGET, LivingEntity.class);
+            if (currentTarget != null && !currentTarget.isAlive()) {
+                blackboard.set(AiKeys.TARGET, null);
+                bug.setTarget(null);
+            }
 
             if (fleeExplosive.hasNearbyExplosive(bug)) {
                 return BehaviorResult.run(fleeExplosive, 120);

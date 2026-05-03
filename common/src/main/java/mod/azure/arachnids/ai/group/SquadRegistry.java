@@ -57,17 +57,46 @@ public final class SquadRegistry {
 
         var board = squadToBoard.get(squadId);
         if (board != null) {
-            long now = mob.level().getGameTime();
+            if (board.targetPriority == null) {
+                board.targetPriority = new ArrayList<>();
+            }
+
+            if (board.roleTargets == null) {
+                board.roleTargets = new EnumMap<>(TacticalRole.class);
+            }
+
+            var now = mob.level().getGameTime();
             if (now - board.lastTargetEvalTick >= TARGET_EVAL_INTERVAL) {
                 evaluateTargets(mob, squadId, board);
                 board.lastTargetEvalTick = now;
             }
 
-            var primary = board.primaryTarget();
-            if (primary != null && primary.isAlive()) {
+            board.targetPriority.removeIf(
+                target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(mob).test(target)
+            );
+
+            board.targetPriority.removeIf(
+                target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(mob).test(target)
+            );
+
+            board.targetPriority.removeIf(
+                target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(mob).test(target)
+            );
+
+            var primary = board.targetPriority.isEmpty() ? null : board.targetPriority.getFirst();
+
+            if (primary != null) {
                 mob.setTarget(primary);
-            } else if (TargetingUtils.validTarget(mob).test(mob.getTarget())) {
-                board.targetPriority.addFirst(mob.getTarget());
+            } else {
+                var fallbackTarget = mob.getTarget();
+
+                if (TargetingUtils.validTarget(mob).test(fallbackTarget)) {
+                    board.targetPriority.addFirst(fallbackTarget);
+                    mob.setTarget(fallbackTarget);
+                } else {
+                    mob.setTarget(null);
+                    board.roleTargets.clear();
+                }
             }
         }
 
@@ -259,9 +288,25 @@ public final class SquadRegistry {
 
             if (otherBoard != null) {
                 var targetBoard = squadToBoard.get(targetSquadId);
-                if (targetBoard != null && !targetBoard.hasPrimaryTarget()) {
-                    targetBoard.targetPriority.addAll(otherBoard.targetPriority);
-                    targetBoard.roleTargets.putAll(otherBoard.roleTargets);
+
+                if (targetBoard != null) {
+                    if (targetBoard.targetPriority == null) {
+                        targetBoard.targetPriority = new ArrayList<>();
+                    }
+                    if (targetBoard.roleTargets == null) {
+                        targetBoard.roleTargets = new EnumMap<>(TacticalRole.class);
+                    }
+                    if (otherBoard.targetPriority == null) {
+                        otherBoard.targetPriority = new ArrayList<>();
+                    }
+                    if (otherBoard.roleTargets == null) {
+                        otherBoard.roleTargets = new EnumMap<>(TacticalRole.class);
+                    }
+
+                    if (!targetBoard.hasPrimaryTarget()) {
+                        targetBoard.targetPriority.addAll(otherBoard.targetPriority);
+                        targetBoard.roleTargets.putAll(otherBoard.roleTargets);
+                    }
                 }
             }
         }

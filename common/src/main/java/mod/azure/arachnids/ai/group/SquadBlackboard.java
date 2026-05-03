@@ -22,11 +22,15 @@ public final class SquadBlackboard {
     public long lastTargetEvalTick = -1;
 
     public LivingEntity primaryTarget() {
-        return targetPriority.isEmpty() ? null : targetPriority.get(0);
+        return targetPriority == null || targetPriority.isEmpty()
+            ? null
+            : targetPriority.getFirst();
     }
 
     public LivingEntity secondaryTarget() {
-        return targetPriority.size() > 1 ? targetPriority.get(1) : null;
+        return targetPriority == null || targetPriority.size() <= 1
+            ? null
+            : targetPriority.get(1);
     }
 
     public boolean hasPrimaryTarget() {

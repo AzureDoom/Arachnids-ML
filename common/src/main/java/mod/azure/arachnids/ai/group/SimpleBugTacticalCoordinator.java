@@ -22,6 +22,13 @@ public final class SimpleBugTacticalCoordinator<E extends Mob> implements Tactic
     @Override
     public TacticalOrder getOrder(E mob, SquadBlackboard squad) {
         var currentTick = mob.level().getGameTime();
+        var primary = squad.primaryTarget();
+
+        if (primary == null || !primary.isAlive()) {
+            squad.targetPriority.clear();
+            squad.roleTargets.clear();
+            return TacticalOrder.none();
+        }
         if (squad.lastReservationTick != currentTick) {
             squad.reservedPositions.clear();
             squad.lastReservationTick = currentTick;
@@ -31,9 +38,20 @@ public final class SimpleBugTacticalCoordinator<E extends Mob> implements Tactic
             return TacticalOrder.none();
         }
 
+        ensureFrontline(mob, squad);
+
         var role = squad.roles.computeIfAbsent(mob.getUUID(), uuid -> pickRole(mob, squad));
 
         var assignedTarget = squad.roleTargets.getOrDefault(role, squad.primaryTarget());
+
+        if (assignedTarget == null || !assignedTarget.isAlive()) {
+            squad.roleTargets.remove(role);
+            assignedTarget = squad.primaryTarget();
+
+            if (assignedTarget == null || !assignedTarget.isAlive()) {
+                return TacticalOrder.none();
+            }
+        }
 
         if (role == TacticalRole.FLANKER) {
             var secondary = squad.secondaryTarget();
@@ -101,5 +119,26 @@ public final class SimpleBugTacticalCoordinator<E extends Mob> implements Tactic
             return TacticalRole.SUPPORT;
 
         return TacticalRole.FRONTLINE;
+    }
+
+    private void ensureFrontline(E mob, SquadBlackboard squad) {
+        if (squad.roles.containsValue(TacticalRole.FRONTLINE)) {
+            return;
+        }
+
+        var mobId = mob.getUUID();
+
+        if (squad.roles.containsKey(mobId)) {
+            squad.roles.put(mobId, TacticalRole.FRONTLINE);
+            return;
+        }
+
+        var firstAssigned = squad.roles.keySet().stream().findFirst();
+        if (firstAssigned.isPresent()) {
+            squad.roles.put(firstAssigned.get(), TacticalRole.FRONTLINE);
+            return;
+        }
+
+        squad.roles.put(mobId, TacticalRole.FRONTLINE);
     }
 }
