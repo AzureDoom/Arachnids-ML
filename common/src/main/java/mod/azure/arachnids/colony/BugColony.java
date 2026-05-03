@@ -74,8 +74,6 @@ public final class BugColony {
 
     private final Random rng = new Random();
 
-    private ColonyState lastState = null;
-
     private final ServerBossEvent bossBar = new ServerBossEvent(
         Component.literal("Bug Colony"),
         BossEvent.BossBarColor.GREEN,
@@ -99,6 +97,7 @@ public final class BugColony {
 
         initialSpawnDone = true;
         doInitialSpawn(level);
+        tickBossBar(level);
     }
 
     private void doInitialSpawn(ServerLevel level) {
@@ -144,8 +143,7 @@ public final class BugColony {
         }
 
         if (!initialSpawnDone) {
-            initialSpawnDone = true;
-            doInitialSpawn(level);
+            initialSpawn(level);
         }
 
         bounds.updateCentre(brain.blockPosition());
@@ -399,7 +397,7 @@ public final class BugColony {
                 var board = SquadRegistry.get().getOrJoinSquad(warrior);
                 if (board != null && highest.isAlive()) {
                     board.targetPriority.remove(highest);
-                    board.targetPriority.add(0, highest);
+                    board.targetPriority.addFirst(highest);
                     board.roleTargets.put(TacticalRole.FRONTLINE, highest);
                     board.roleTargets.put(TacticalRole.FLANKER, highest);
                     board.roleTargets.put(TacticalRole.SUPPORT, highest);
@@ -581,27 +579,18 @@ public final class BugColony {
     }
 
     private void updateBossBar() {
-        if (state != lastState) {
-            bossBar.setName(Component.literal("Bug Colony - " + formatState()));
-            bossBar.setColor(colorState());
-            lastState = state;
-        }
-        var maxMembers = MAX_WORKERS + MAX_WARRIORS + MAX_CHARIOTS;
-        var current = activeChariots.size() + virtualPop.getVirtualChariots() + activeWorkers.size() + virtualPop
-            .getVirtualWorkers()
-            + activeWarriors.size() + virtualPop.getVirtualWarriors();
+        bossBar.setName(Component.literal("Bug Colony - " + formatState()));
+        bossBar.setColor(colorState());
+
+        var maxMembers = MAX_WORKERS + MAX_WARRIORS + MAX_CHARIOTS + MAX_HOPPERS;
+
+        var current = activeChariots.size() + virtualPop.getVirtualChariots()
+            + activeWorkers.size() + virtualPop.getVirtualWorkers()
+            + activeWarriors.size() + virtualPop.getVirtualWarriors()
+            + activeHoppers.size() + virtualPop.getVirtualHoppers();
 
         var progress = Math.clamp((float) current / maxMembers, 0.0f, 1.0f);
         bossBar.setProgress(progress);
-
-        if (progress > 0.6f) {
-            bossBar.setColor(BossEvent.BossBarColor.GREEN);
-        } else if (progress > 0.3f) {
-            bossBar.setColor(BossEvent.BossBarColor.YELLOW);
-        } else {
-            bossBar.setColor(BossEvent.BossBarColor.RED);
-        }
-
         bossBar.setVisible(!disbandPending);
     }
 }
