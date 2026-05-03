@@ -162,7 +162,17 @@ public class WarriorBugTree {
                 }
 
                 if (state == ColonyState.PEACEFUL) {
-                    return BehaviorResult.run(patrol, 30);
+                    var target = blackboard.get(AiKeys.TARGET, LivingEntity.class);
+
+                    if (target == null || !target.isAlive()) {
+                        target = bug.getTarget();
+                    }
+
+                    if (target == null || !target.isAlive() || !TargetingUtils.validTarget(bug).test(target)) {
+                        return BehaviorResult.run(patrol, 30);
+                    }
+
+                    blackboard.set(AiKeys.TARGET, target);
                 }
             }
 
