@@ -61,7 +61,7 @@ public class ChariotBugTree {
                 return BehaviorResult.run(carry, 40);
             }
 
-            if (!hasThreat && BrainBugCarrySystem.get().wantsCarriersExist()) {
+            if (BrainBugCarrySystem.get().wantsCarriersExist()) {
                 return BehaviorResult.run(seek, 30);
             }
 
