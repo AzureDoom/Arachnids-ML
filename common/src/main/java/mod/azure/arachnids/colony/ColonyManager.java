@@ -35,8 +35,12 @@ public final class ColonyManager {
 
         var brainPos = brain.blockPosition();
         for (var existing : colonies.values()) {
-            if (existing.getBounds().isTooCloseToAnotherColony(level, brainPos)) {
-                CommonMod.LOGGER.info("Colony already exists for {}", id);
+            if (!existing.isDisbanded() && existing.getBounds().isTooCloseToAnotherColony(level, brainPos)) {
+                CommonMod.LOGGER.info(
+                    "Colony already exists near {}, existing colony centre is {}",
+                    brainPos,
+                    existing.getBounds().centre()
+                );
                 brain.discard();
                 return;
             }
