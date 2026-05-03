@@ -30,5 +30,7 @@ public final class AiKeys {
 
     public static final String IS_CORNERED = "worker:is_cornered";
 
+    public static final String DESTINATION = "destination";
+
     private AiKeys() {}
 }

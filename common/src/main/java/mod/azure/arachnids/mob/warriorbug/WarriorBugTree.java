@@ -33,9 +33,97 @@ public class WarriorBugTree {
 
         var patrol = new ColonyPatrolAction<>(30);
 
+        var moveToTargetFast = new MoveToTargetAction<WarriorBug>(
+            2.5D,
+            0.42D,
+            20
+        );
+
+        var moveToTargetCombat = new MoveToTargetAction<WarriorBug>(
+            2.5D,
+            0.38D,
+            20
+        );
+
+        var retreatMove = new MoveToDestinationAction<WarriorBug>(
+            0.5D,
+            0.55D,
+            30,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var supportMove = new MoveToDestinationAction<WarriorBug>(
+            3.5D,
+            0.25D,
+            25,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var destinationMove = new MoveToDestinationAction<WarriorBug>(
+            2.5D,
+            0.38D,
+            25,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var flankerDestinationMove = new MoveToDestinationAction<WarriorBug>(
+            2.5D,
+            0.46D,
+            25,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
         var wander = new WanderAction<WarriorBug>(0.18D, 5, 8.0D, 40, 120);
 
         var idle = new IdleAction<WarriorBug>(30, 80, 5);
+
+        var heavyAttack110 = new TimedAttackAction<WarriorBug>(
+            "heavy_attack",
+            40,
+            17,
+            10,
+            110,
+            b -> b.animationDispatcher.serverHeavyAttack()
+        );
+
+        var heavyAttack100 = new TimedAttackAction<WarriorBug>(
+            "heavy_attack",
+            40,
+            17,
+            10,
+            100,
+            b -> b.animationDispatcher.serverHeavyAttack()
+        );
+
+        var normalAttack100 = new TimedAttackAction<WarriorBug>(
+            "normal_attack",
+            40,
+            28,
+            16,
+            100,
+            b -> b.animationDispatcher.serverNormalAttack()
+        );
+
+        var normalAttack80 = new TimedAttackAction<WarriorBug>(
+            "normal_attack",
+            40,
+            28,
+            16,
+            80,
+            b -> b.animationDispatcher.serverNormalAttack()
+        );
 
         return (bug, blackboard, cooldowns) -> {
             var currentTarget = blackboard.get(AiKeys.TARGET, LivingEntity.class);
@@ -61,43 +149,16 @@ public class WarriorBugTree {
 
                     if (TargetingUtils.isInAttackRange(bug, directive, 1.25D) && cooldowns.ready("heavy_attack")) {
                         blackboard.set(AiKeys.TARGET, directive);
-                        return BehaviorResult.run(
-                            new TimedAttackAction<>(
-                                "heavy_attack",
-                                40,
-                                17,
-                                10,
-                                110,
-                                b -> b.animationDispatcher.serverHeavyAttack()
-                            ),
-                            110
-                        );
+                        return BehaviorResult.run(heavyAttack110, 110);
                     }
 
                     if (TargetingUtils.isInAttackRange(bug, directive, 1.0D) && cooldowns.ready("normal_attack")) {
                         blackboard.set(AiKeys.TARGET, directive);
-                        return BehaviorResult.run(
-                            new TimedAttackAction<>(
-                                "normal_attack",
-                                40,
-                                28,
-                                16,
-                                100,
-                                b -> b.animationDispatcher.serverNormalAttack()
-                            ),
-                            100
-                        );
+                        return BehaviorResult.run(normalAttack100, 100);
                     }
 
                     blackboard.set(AiKeys.TARGET, directive);
-                    return BehaviorResult.run(
-                        new MoveToTargetAction<>(
-                            2.5D,
-                            0.42D,
-                            20
-                        ),
-                        90
-                    );
+                    return BehaviorResult.run(moveToTargetFast, 90);
                 }
 
                 if (state == ColonyState.PEACEFUL) {
@@ -118,136 +179,63 @@ public class WarriorBugTree {
                 var order = COORDINATOR.getOrder(bug, squad);
 
                 if (order.role() == TacticalRole.RETREATING && order.hasDestination()) {
-                    return BehaviorResult.run(
-                        new MoveToDestinationAction<>(
-                            order.destination(),
-                            0.5D,
-                            0.55D,
-                            30,
-                            5.0D,
-                            1.0D,
-                            0.55D,
-                            0.85D
-                        ),
-                        30
-                    );
+                    blackboard.set(AiKeys.DESTINATION, order.destination());
+                    return BehaviorResult.run(retreatMove, 30);
                 }
 
                 if (order.hasTarget()) {
                     var target = order.target();
 
                     if (order.role() == TacticalRole.SUPPORT) {
-                        boolean frontlineEngaged = squad.roles.values()
-                            .stream()
-                            .anyMatch(r -> r == TacticalRole.FRONTLINE);
+                        var frontlineEngaged = false;
+                        for (var role : squad.roles.values()) {
+                            if (role == TacticalRole.FRONTLINE) {
+                                frontlineEngaged = true;
+                                break;
+                            }
+                        }
 
-                        if (!frontlineEngaged || !TargetingUtils.isInAttackRange(bug, target, SUPPORT_ENGAGE_RANGE)) {
-                            return BehaviorResult.run(
-                                new MoveToDestinationAction<>(
-                                    order.destination(),
-                                    3.5D,
-                                    0.25D,
-                                    25,
-                                    5.0D,
-                                    1.0D,
-                                    0.55D,
-                                    0.85D
-                                ),
-                                25
-                            );
+                        if (
+                            order.hasDestination() && (!frontlineEngaged || !TargetingUtils.isInAttackRange(
+                                bug,
+                                target,
+                                SUPPORT_ENGAGE_RANGE
+                            ))
+                        ) {
+                            blackboard.set(AiKeys.DESTINATION, order.destination());
+                            return BehaviorResult.run(supportMove, 25);
                         }
                     }
 
                     if (TargetingUtils.isInAttackRange(bug, target, 1.25D) && cooldowns.ready("heavy_attack")) {
-                        return BehaviorResult.run(
-                            new TimedAttackAction<>(
-                                "heavy_attack",
-                                40,
-                                17,
-                                10,
-                                100,
-                                b -> b.animationDispatcher.serverHeavyAttack()
-                            ),
-                            100
-                        );
+                        return BehaviorResult.run(heavyAttack100, 100);
                     }
                     if (TargetingUtils.isInAttackRange(bug, target, 1.0D) && cooldowns.ready("normal_attack")) {
-                        return BehaviorResult.run(
-                            new TimedAttackAction<>(
-                                "normal_attack",
-                                40,
-                                28,
-                                16,
-                                80,
-                                b -> b.animationDispatcher.serverNormalAttack()
-                            ),
-                            80
-                        );
+                        return BehaviorResult.run(normalAttack80, 80);
                     }
                     if (order.hasDestination()) {
                         blackboard.set(AiKeys.TARGET, target);
-                        double speed = order.role() == TacticalRole.FLANKER ? 0.46D : 0.38D;
-                        return BehaviorResult.run(
-                            new MoveToDestinationAction<>(
-                                order.destination(),
-                                2.5D,
-                                speed,
-                                25,
-                                5.0D,
-                                1.0D,
-                                0.55D,
-                                0.85D
-                            ),
-                            25
-                        );
+                        blackboard.set(AiKeys.DESTINATION, order.destination());
+
+                        if (order.role() == TacticalRole.FLANKER) {
+                            return BehaviorResult.run(flankerDestinationMove, 25);
+                        }
+
+                        return BehaviorResult.run(destinationMove, 25);
                     }
-                    return BehaviorResult.run(
-                        new MoveToTargetAction<>(
-                            2.5D,
-                            0.38D,
-                            20
-                        ),
-                        20
-                    );
+                    return BehaviorResult.run(moveToTargetCombat, 20);
                 }
             }
 
             var target = blackboard.get(AiKeys.TARGET, LivingEntity.class);
             if (target != null && target.isAlive()) {
                 if (TargetingUtils.isInAttackRange(bug, target, 1.25D) && cooldowns.ready("heavy_attack")) {
-                    return BehaviorResult.run(
-                        new TimedAttackAction<>(
-                            "heavy_attack",
-                            40,
-                            17,
-                            10,
-                            100,
-                            b -> b.animationDispatcher.serverHeavyAttack()
-                        ),
-                        100
-                    );
+                    return BehaviorResult.run(heavyAttack100, 100);
                 }
                 if (TargetingUtils.isInAttackRange(bug, target, 1.0D) && cooldowns.ready("normal_attack")) {
-                    return BehaviorResult.run(
-                        new TimedAttackAction<>(
-                            "normal_attack",
-                            40,
-                            28,
-                            16,
-                            80,
-                            b -> b.animationDispatcher.serverNormalAttack()
-                        ),
-                        80
-                    );
+                    return BehaviorResult.run(normalAttack80, 80);
                 }
-                return BehaviorResult.run(
-                    new MoveToTargetAction<>(
-                        2.5D,
-                        0.38D,
-                        20
-                    ),
-                    20
-                );
+                return BehaviorResult.run(moveToTargetCombat, 20);
             }
 
             if (bug.getRandom().nextFloat() < 0.35F) {

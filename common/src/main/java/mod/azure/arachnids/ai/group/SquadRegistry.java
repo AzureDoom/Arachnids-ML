@@ -32,6 +32,8 @@ public final class SquadRegistry {
 
     private final Map<UUID, UUID> mobToSquad = new HashMap<>();
 
+    private long lastPruneTick = -1;
+
     private SquadRegistry() {}
 
     public <E extends Mob> SquadBlackboard getOrJoinSquad(E mob) {
@@ -75,14 +77,6 @@ public final class SquadRegistry {
                 target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(mob).test(target)
             );
 
-            board.targetPriority.removeIf(
-                target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(mob).test(target)
-            );
-
-            board.targetPriority.removeIf(
-                target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(mob).test(target)
-            );
-
             var primary = board.targetPriority.isEmpty() ? null : board.targetPriority.getFirst();
 
             if (primary != null) {
@@ -111,8 +105,28 @@ public final class SquadRegistry {
     public void remove(Mob mob) {
         var mobId = mob.getUUID();
         var squadId = mobToSquad.remove(mobId);
-        if (squadId == null)
+        if (squadId == null) {
             return;
+        }
+
+        var board = squadToBoard.get(squadId);
+        if (board != null) {
+            board.roles.remove(mobId);
+            board.reservedPositions.remove(mobId);
+
+            if (board.roleTargets != null) {
+                board.roleTargets.values()
+                    .removeIf(
+                        target -> target == null || !target.isAlive()
+                    );
+            }
+
+            if (board.targetPriority != null) {
+                board.targetPriority.removeIf(
+                    target -> target == null || !target.isAlive()
+                );
+            }
+        }
 
         var members = squadToMembers.get(squadId);
         if (members != null) {
@@ -212,8 +226,15 @@ public final class SquadRegistry {
     }
 
     private void pruneDeadMobs(Mob reference) {
-        if (!(reference.level() instanceof ServerLevel serverLevel))
+        if (!(reference.level() instanceof ServerLevel serverLevel)) {
             return;
+        }
+
+        var now = serverLevel.getGameTime();
+        if (now == lastPruneTick) {
+            return;
+        }
+        lastPruneTick = now;
 
         Iterator<Map.Entry<UUID, UUID>> it = mobToSquad.entrySet().iterator();
         while (it.hasNext()) {
@@ -228,15 +249,32 @@ public final class SquadRegistry {
                 var members = squadToMembers.get(squadId);
                 if (members != null) {
                     members.remove(memberId);
-                    if (members.isEmpty()) {
-                        squadToMembers.remove(squadId);
-                        squadToBoard.remove(squadId);
-                    }
                 }
 
                 var board = squadToBoard.get(squadId);
                 if (board != null) {
-                    board.reservedPositions.clear();
+                    board.roles.remove(memberId);
+                    board.reservedPositions.remove(memberId);
+
+                    if (board.targetPriority != null) {
+                        board.targetPriority.removeIf(
+                            target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(reference)
+                                .test(target)
+                        );
+                    }
+
+                    if (board.roleTargets != null) {
+                        board.roleTargets.values()
+                            .removeIf(
+                                target -> target == null || !target.isAlive() || !TargetingUtils.validTarget(reference)
+                                    .test(target)
+                            );
+                    }
+                }
+
+                if (members != null && members.isEmpty()) {
+                    squadToMembers.remove(squadId);
+                    squadToBoard.remove(squadId);
                 }
             }
         }

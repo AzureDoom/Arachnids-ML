@@ -10,8 +10,6 @@ import mod.azure.arachnids.ai.util.MovementUtils;
 
 public final class MoveToDestinationAction<E extends Mob> implements Action<E> {
 
-    private final BlockPos destination;
-
     private final double stopDistanceSqr;
 
     private final double speed;
@@ -29,7 +27,6 @@ public final class MoveToDestinationAction<E extends Mob> implements Action<E> {
     private final int[] steerBias = { 0 };
 
     public MoveToDestinationAction(
-        BlockPos destination,
         double stopDistance,
         double speed,
         int priority,
@@ -38,7 +35,6 @@ public final class MoveToDestinationAction<E extends Mob> implements Action<E> {
         double leapVerticalPower,
         double leapHorizontalPower
     ) {
-        this.destination = destination;
         this.stopDistanceSqr = stopDistance * stopDistance;
         this.speed = speed;
         this.priority = priority;
@@ -56,6 +52,12 @@ public final class MoveToDestinationAction<E extends Mob> implements Action<E> {
     @Override
     public ActionStatus tick(E mob, Blackboard blackboard, Cooldowns cooldowns) {
         if (mob.getHealth() <= 0) {
+            mob.setAggressive(false);
+            return ActionStatus.INTERRUPTED;
+        }
+
+        var destination = blackboard.get(AiKeys.DESTINATION, BlockPos.class);
+        if (destination == null) {
             mob.setAggressive(false);
             return ActionStatus.INTERRUPTED;
         }
