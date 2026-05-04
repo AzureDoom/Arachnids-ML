@@ -2,14 +2,28 @@ package mod.azure.arachnids.ai.actions;
 
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.function.Consumer;
 
 import mod.azure.arachnids.ai.core.*;
+import mod.azure.arachnids.ai.util.MovementUtils;
 
 public final class TimedAttackAction<E extends Mob> implements Action<E> {
 
     private static final double HIT_INFLATE = 2.5D;
+
+    private static final int LUNGE_FORWARD_START_TICK = 4;
+
+    private static final int LUNGE_FORWARD_END_TICK = 8;
+
+    private static final int LUNGE_BACK_START_TICK = 9;
+
+    private static final int LUNGE_BACK_END_TICK = 13;
+
+    private static final double LUNGE_FORWARD_SPEED = 0.22D;
+
+    private static final double LUNGE_BACK_SPEED = 0.16D;
 
     private final String cooldownKey;
 
@@ -51,8 +65,6 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
     @Override
     public ActionStatus tick(E mob, Blackboard blackboard, Cooldowns cooldowns) {
         age++;
-        mob.setDeltaMovement(0.0D, mob.getDeltaMovement().y, 0.0D);
-        mob.hasImpulse = true;
 
         if (mob.getHealth() <= 0) {
             mob.setAggressive(false);
@@ -63,6 +75,24 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
         if (target == null || !target.isAlive()) {
             return ActionStatus.FAILURE;
         }
+
+        mob.getLookControl().setLookAt(target, 30.0F, 30.0F);
+
+        var dangerMove = MovementUtils.steerAwayFromDangerEntities(mob, Vec3.ZERO);
+
+        if (dangerMove.lengthSqr() > 0.0001D) {
+            var safe = MovementUtils.findSafeMovement(mob, dangerMove, new int[] { 0 });
+
+            if (!safe.equals(Vec3.ZERO)) {
+                mob.setDeltaMovement(safe.x, mob.getDeltaMovement().y, safe.z);
+            } else {
+                mob.setDeltaMovement(dangerMove.x, mob.getDeltaMovement().y, dangerMove.z);
+            }
+        } else {
+            var lungeMove = getLungeMovement(mob, target);
+            mob.setDeltaMovement(lungeMove.x, mob.getDeltaMovement().y, lungeMove.z);
+        }
+        mob.hasImpulse = true;
 
         if (age == damageTick) {
             if (mob.getBoundingBox().inflate(HIT_INFLATE).intersects(target.getBoundingBox())) {
@@ -86,6 +116,27 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
         }
 
         return ActionStatus.RUNNING;
+    }
+
+    private Vec3 getLungeMovement(E mob, LivingEntity target) {
+        var direction = target.position().subtract(mob.position());
+        direction = new Vec3(direction.x, 0.0D, direction.z);
+
+        if (direction.lengthSqr() < 0.0001D) {
+            return Vec3.ZERO;
+        }
+
+        direction = direction.normalize();
+
+        if (age >= LUNGE_FORWARD_START_TICK && age <= LUNGE_FORWARD_END_TICK) {
+            return direction.scale(LUNGE_FORWARD_SPEED);
+        }
+
+        if (age >= LUNGE_BACK_START_TICK && age <= LUNGE_BACK_END_TICK) {
+            return direction.scale(-LUNGE_BACK_SPEED);
+        }
+
+        return Vec3.ZERO;
     }
 
     @Override
