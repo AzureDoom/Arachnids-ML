@@ -65,9 +65,9 @@ public class HopperBug extends Monster {
     public static AttributeSupplier.@NotNull Builder createMobAttributes() {
         return LivingEntity.createLivingAttributes()
             .add(Attributes.FOLLOW_RANGE, 16.0F)
-            .add(Attributes.ATTACK_DAMAGE, CommonMod.getConfig().entityConfigs.hopperBugHealth)
+            .add(Attributes.ATTACK_DAMAGE, CommonMod.getConfig().entityConfigs.hopperBugAttackDamage)
             .add(Attributes.KNOCKBACK_RESISTANCE, CommonMod.getConfig().entityConfigs.hopperBugKnockbackRes)
-            .add(Attributes.MAX_HEALTH, CommonMod.getConfig().entityConfigs.hopperBugAttackDamage);
+            .add(Attributes.MAX_HEALTH, CommonMod.getConfig().entityConfigs.hopperBugHealth);
     }
 
     @Override
