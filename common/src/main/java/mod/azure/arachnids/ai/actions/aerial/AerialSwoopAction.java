@@ -36,9 +36,13 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
 
     private boolean hasHit;
 
-    private static final double PICKUP_CHANCE = 0.35D;
+    private static final double PICKUP_CHANCE = 0.95D;
 
     private final BiPredicate<E, LivingEntity> pickupHandler;
+
+    private boolean pickedUpTarget;
+
+    private int pullUpStartAge;
 
     public AerialSwoopAction(
         int totalTicks,
@@ -75,6 +79,8 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
         }
 
         this.hasHit = false;
+        this.pickedUpTarget = false;
+        this.pullUpStartAge = diveTicks;
 
         mob.setAggressive(true);
         animationTrigger.accept(mob);
@@ -91,7 +97,7 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
 
         var target = blackboard.get(AiKeys.TARGET, LivingEntity.class);
 
-        if (age <= diveTicks) {
+        if (age <= pullUpStartAge && !pickedUpTarget) {
             var velocity = diveVector.scale(diveSpeed);
             mob.setDeltaMovement(velocity);
             mob.hasImpulse = true;
@@ -116,7 +122,18 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
                         pickedUp = pickupHandler.test(mob, target);
 
                         if (pickedUp) {
-                            blackboard.set(AiKeys.TARGET, null);
+                            pickedUpTarget = true;
+
+                            pullUpStartAge = age;
+
+                            var currentVel = mob.getDeltaMovement();
+                            mob.setDeltaMovement(
+                                currentVel.x * 0.45D,
+                                Math.max(currentVel.y, pullUpVerticalPower * 1.65D),
+                                currentVel.z * 0.45D
+                            );
+                            mob.hasImpulse = true;
+
                             mob.setTarget(null);
                         }
                     }
@@ -136,8 +153,26 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
         }
 
         var current = mob.getDeltaMovement();
-        var pullTarget = new Vec3(current.x * 0.7D, pullUpVerticalPower, current.z * 0.7D);
-        var blended = current.lerp(pullTarget, PULLUP_BLEND);
+
+        var verticalPower = pickedUpTarget
+            ? pullUpVerticalPower * 1.45D
+            : pullUpVerticalPower;
+
+        var horizontalDrag = pickedUpTarget
+            ? 0.45D
+            : 0.7D;
+
+        var blend = pickedUpTarget
+            ? 0.38D
+            : PULLUP_BLEND;
+
+        var pullTarget = new Vec3(
+            current.x * horizontalDrag,
+            verticalPower,
+            current.z * horizontalDrag
+        );
+
+        var blended = current.lerp(pullTarget, blend);
         mob.setDeltaMovement(blended);
         mob.hasImpulse = true;
 

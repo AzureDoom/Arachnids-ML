@@ -39,7 +39,7 @@ public class HopperBug extends Monster {
 
     private static final double FALL_DAMAGE_DROP_MULTIPLIER = 2.0D;
 
-    private static final double MAX_CARRY_UPWARD_SPEED = 0.46D;
+    private static final double MAX_CARRY_UPWARD_SPEED = 1.15D;
 
     private int carryTicks;
 
@@ -164,8 +164,6 @@ public class HopperBug extends Monster {
             return false;
         }
 
-        target.stopRiding();
-
         if (!target.startRiding(this, true)) {
             return false;
         }
@@ -200,7 +198,7 @@ public class HopperBug extends Monster {
 
         target.setDeltaMovement(
             this.getDeltaMovement().x * 0.35D,
-            1.55D,
+            -0.05D,
             this.getDeltaMovement().z * 0.35D
         );
 
@@ -239,31 +237,44 @@ public class HopperBug extends Monster {
             return;
         }
 
-        if (
-            !carriedTarget.isAlive()
-                || !carriedTarget.isPassenger()
-                || carriedTarget.getVehicle() != this
-        ) {
+        if (!carriedTarget.isAlive()) {
             carriedTarget = null;
             carryTicks = 0;
             return;
         }
 
-        carryTicks++;
+        if (carriedTarget.getVehicle() != this) {
+            if (carryTicks <= 40 && !carriedTarget.isVehicle()) {
+                carriedTarget.startRiding(this, true);
+                carriedTarget.setDeltaMovement(Vec3.ZERO);
+                carriedTarget.fallDistance = 0.0F;
+                carriedTarget.hurtMarked = true;
+            }
 
-        var estimatedFallDistance = estimateFallDistanceFrom(carriedTarget);
-
-        var damagingDropDistance = Math.max(
-            1.0D,
-            carriedTarget.getMaxFallDistance() * FALL_DAMAGE_DROP_MULTIPLIER
-        );
-
-        if (estimatedFallDistance >= damagingDropDistance) {
-            dropCarriedTarget();
-            return;
+            if (carriedTarget.getVehicle() != this) {
+                carriedTarget = null;
+                carryTicks = 0;
+                return;
+            }
         }
 
-        if (carryTicks >= 200) {
+        carryTicks++;
+
+        if (carryTicks > 40) {
+            var estimatedFallDistance = estimateFallDistanceFrom(carriedTarget);
+
+            var damagingDropDistance = Math.max(
+                1.0D,
+                carriedTarget.getMaxFallDistance() * FALL_DAMAGE_DROP_MULTIPLIER
+            );
+
+            if (estimatedFallDistance >= damagingDropDistance) {
+                dropCarriedTarget();
+                return;
+            }
+        }
+
+        if (carryTicks >= 600) {
             dropCarriedTarget();
             return;
         }
