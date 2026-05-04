@@ -4,6 +4,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
 import mod.azure.arachnids.ai.core.*;
@@ -33,6 +34,12 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
 
     private Vec3 diveDestination;
 
+    private boolean hasHit;
+
+    private static final double PICKUP_CHANCE = 0.35D;
+
+    private final BiPredicate<E, LivingEntity> pickupHandler;
+
     public AerialSwoopAction(
         int totalTicks,
         int diveTicks,
@@ -40,7 +47,8 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
         double pullUpVerticalPower,
         int swoopCooldownTicks,
         int priority,
-        Consumer<E> animationTrigger
+        Consumer<E> animationTrigger,
+        BiPredicate<E, LivingEntity> pickupHandler
     ) {
         this.totalTicks = totalTicks;
         this.diveTicks = diveTicks;
@@ -49,6 +57,7 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
         this.swoopCooldownTicks = swoopCooldownTicks;
         this.priority = priority;
         this.animationTrigger = animationTrigger;
+        this.pickupHandler = pickupHandler;
     }
 
     @Override
@@ -64,6 +73,8 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
 
             this.diveVector = len > 0.01D ? toTarget.scale(1.0D / len) : new Vec3(0, -1, 0);
         }
+
+        this.hasHit = false;
 
         mob.setAggressive(true);
         animationTrigger.accept(mob);
@@ -93,14 +104,30 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
             mob.yHeadRot = yaw;
             mob.setXRot(pitch);
 
-            if (target != null && target.isAlive()) {
+            if (target != null && target.isAlive() && !hasHit) {
                 var hitInflate = Math.max(1.0D, diveSpeed * 0.5D);
-                if (mob.getBoundingBox().inflate(hitInflate).intersects(target.getBoundingBox())) {
-                    mob.doHurtTarget(target);
 
-                    if (!target.isAlive()) {
-                        blackboard.set(AiKeys.TARGET, null);
-                        mob.setTarget(null);
+                if (mob.getBoundingBox().inflate(hitInflate).intersects(target.getBoundingBox())) {
+                    hasHit = true;
+
+                    var pickedUp = false;
+
+                    if (mob.getRandom().nextDouble() < PICKUP_CHANCE) {
+                        pickedUp = pickupHandler.test(mob, target);
+
+                        if (pickedUp) {
+                            blackboard.set(AiKeys.TARGET, null);
+                            mob.setTarget(null);
+                        }
+                    }
+
+                    if (!pickedUp) {
+                        mob.doHurtTarget(target);
+
+                        if (!target.isAlive()) {
+                            blackboard.set(AiKeys.TARGET, null);
+                            mob.setTarget(null);
+                        }
                     }
                 }
             }

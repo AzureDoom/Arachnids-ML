@@ -2,8 +2,10 @@ package mod.azure.arachnids.mob.hopperbug;
 
 import mod.azure.azurelib.common.util.MoveAnalysis;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -11,6 +13,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
 import mod.azure.arachnids.CommonMod;
@@ -20,6 +23,7 @@ import mod.azure.arachnids.ai.util.NearestHostileTargetSelector;
 import mod.azure.arachnids.ai.util.TargetingSystem;
 import mod.azure.arachnids.colony.ColonyManager;
 import mod.azure.arachnids.registry.SoundRegistry;
+import mod.azure.arachnids.util.MobUtils;
 
 public class HopperBug extends Monster {
 
@@ -28,6 +32,16 @@ public class HopperBug extends Monster {
     public final HopperBugAnimationDispatcher animationDispatcher;
 
     private final MoveAnalysis moveAnalysis;
+
+    private static final int CARRY_DURATION_TICKS = 200;
+
+    private LivingEntity carriedTarget;
+
+    private static final double FALL_DAMAGE_DROP_MULTIPLIER = 2.0D;
+
+    private static final double MAX_CARRY_UPWARD_SPEED = 0.46D;
+
+    private int carryTicks;
 
     public HopperBug(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
@@ -78,6 +92,9 @@ public class HopperBug extends Monster {
             var colony = ColonyManager.get().colonyOf(this);
             if (colony != null)
                 this.setPersistenceRequired();
+
+            tickCarriedTarget();
+
             brainRuntime.tick();
         }
 
@@ -86,8 +103,99 @@ public class HopperBug extends Monster {
 
     @Override
     public void remove(@NotNull RemovalReason reason) {
+        dropCarriedTarget();
         SquadRegistry.get().remove(this);
         super.remove(reason);
+    }
+
+    @Override
+    protected void positionRider(@NotNull Entity passenger, @NotNull MoveFunction moveFunction) {
+        if (!this.hasPassenger(passenger)) {
+            return;
+        }
+
+        var forward = Vec3.directionFromRotation(0.0F, this.getYRot());
+        var offset = forward.scale(-0.45D);
+
+        var x = this.getX() + offset.x;
+        var y = this.getY() + this.getBbHeight() * 0.45D;
+        var z = this.getZ() + offset.z;
+
+        moveFunction.accept(passenger, x, y, z);
+    }
+
+    public boolean isCarryingTarget() {
+        return carriedTarget != null
+            && carriedTarget.isAlive()
+            && carriedTarget.isPassenger()
+            && carriedTarget.getVehicle() == this;
+    }
+
+    public boolean tryPickUpTarget(LivingEntity target) {
+        if (this.level().isClientSide()) {
+            return false;
+        }
+
+        if (target == null || !target.isAlive()) {
+            return false;
+        }
+
+        if (target == this) {
+            return false;
+        }
+
+        if (this.isPassenger()) {
+            return false;
+        }
+
+        if (target.isPassenger()) {
+            return false;
+        }
+
+        if (target.isVehicle()) {
+            return false;
+        }
+
+        if (isCarryingTarget()) {
+            return false;
+        }
+
+        target.stopRiding();
+
+        if (!target.startRiding(this, true)) {
+            return false;
+        }
+
+        this.carriedTarget = target;
+        this.carryTicks = 0;
+
+        target.setDeltaMovement(Vec3.ZERO);
+        target.fallDistance = 0.0F;
+        target.hurtMarked = true;
+
+        return true;
+    }
+
+    public void dropCarriedTarget() {
+        if (carriedTarget == null) {
+            return;
+        }
+
+        var target = carriedTarget;
+        carriedTarget = null;
+        carryTicks = 0;
+
+        if (target.getVehicle() == this) {
+            target.stopRiding();
+        }
+
+        target.setDeltaMovement(
+            this.getDeltaMovement().x * 0.35D,
+            1.55D,
+            this.getDeltaMovement().z * 0.35D
+        );
+
+        target.hurtMarked = true;
     }
 
     public void updateAnimations() {
@@ -115,6 +223,78 @@ public class HopperBug extends Monster {
         }
 
         animationDispatcher.clientIdle();
+    }
+
+    private void tickCarriedTarget() {
+        if (carriedTarget == null) {
+            return;
+        }
+
+        if (
+            !carriedTarget.isAlive()
+                || !carriedTarget.isPassenger()
+                || carriedTarget.getVehicle() != this
+        ) {
+            carriedTarget = null;
+            carryTicks = 0;
+            return;
+        }
+
+        carryTicks++;
+
+        var estimatedFallDistance = estimateFallDistanceFrom(carriedTarget);
+
+        var damagingDropDistance = Math.max(
+            1.0D,
+            carriedTarget.getMaxFallDistance() * FALL_DAMAGE_DROP_MULTIPLIER
+        );
+
+        if (estimatedFallDistance >= damagingDropDistance) {
+            dropCarriedTarget();
+            return;
+        }
+
+        if (carryTicks >= 200) {
+            dropCarriedTarget();
+            return;
+        }
+
+        limitCarryUpwardDrift();
+    }
+
+    private double estimateFallDistanceFrom(LivingEntity entity) {
+        var level = entity.level();
+
+        var x = entity.getX();
+        var z = entity.getZ();
+        var startY = entity.getBoundingBox().minY;
+
+        var start = BlockPos.containing(x, startY, z);
+        var minY = level.getMinBuildHeight();
+
+        for (var y = start.getY(); y >= minY; y--) {
+            var pos = new BlockPos(start.getX(), y, start.getZ());
+            var state = level.getBlockState(pos);
+
+            if (!state.getCollisionShape(level, pos).isEmpty()) {
+                return Math.max(0.0D, startY - (y + 1.0D));
+            }
+        }
+
+        return Double.MAX_VALUE;
+    }
+
+    private void limitCarryUpwardDrift() {
+        var velocity = this.getDeltaMovement();
+
+        if (velocity.y > MAX_CARRY_UPWARD_SPEED) {
+            this.setDeltaMovement(
+                velocity.x,
+                MAX_CARRY_UPWARD_SPEED,
+                velocity.z
+            );
+            this.hasImpulse = true;
+        }
     }
 
     @Override
