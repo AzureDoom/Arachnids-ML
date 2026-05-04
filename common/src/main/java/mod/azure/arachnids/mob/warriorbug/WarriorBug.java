@@ -2,6 +2,7 @@ package mod.azure.arachnids.mob.warriorbug;
 
 import mod.azure.azurelib.common.util.MoveAnalysis;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -23,6 +24,7 @@ import mod.azure.arachnids.colony.BugColony;
 import mod.azure.arachnids.colony.ColonyManager;
 import mod.azure.arachnids.mob.brainbug.BrainBug;
 import mod.azure.arachnids.registry.SoundRegistry;
+import mod.azure.arachnids.util.MobUtils;
 
 public class WarriorBug extends Monster {
 
@@ -101,9 +103,18 @@ public class WarriorBug extends Monster {
             if (colony != null)
                 this.setPersistenceRequired();
             brainRuntime.tick();
+
+            if (this.isOnFire() && this.tickCount % 2 == 0) {
+                MobUtils.spawnFireParticles(this, (ServerLevel) this.level());
+            }
         }
 
         moveAnalysis.update();
+    }
+
+    @Override
+    public boolean displayFireAnimation() {
+        return false;
     }
 
     @Override

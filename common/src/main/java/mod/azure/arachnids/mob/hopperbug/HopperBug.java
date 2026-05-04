@@ -96,6 +96,10 @@ public class HopperBug extends Monster {
             tickCarriedTarget();
 
             brainRuntime.tick();
+
+            if (this.isOnFire() && this.tickCount % 2 == 0) {
+                MobUtils.spawnFireParticles(this, (ServerLevel) this.level());
+            }
         }
 
         moveAnalysis.update();
@@ -174,6 +178,11 @@ public class HopperBug extends Monster {
         target.hurtMarked = true;
 
         return true;
+    }
+
+    @Override
+    public boolean displayFireAnimation() {
+        return false;
     }
 
     public void dropCarriedTarget() {

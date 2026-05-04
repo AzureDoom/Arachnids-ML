@@ -22,6 +22,7 @@ import mod.azure.arachnids.ai.util.TargetingSystem;
 import mod.azure.arachnids.colony.ColonyManager;
 import mod.azure.arachnids.mob.chariotbug.ChariotBug;
 import mod.azure.arachnids.registry.SoundRegistry;
+import mod.azure.arachnids.util.MobUtils;
 import mod.azure.arachnids.util.ModTags;
 
 public class BrainBug extends PathfinderMob {
@@ -78,9 +79,18 @@ public class BrainBug extends PathfinderMob {
                 colonyRegistered = true;
             }
             brainRuntime.tick();
+
+            if (this.isOnFire() && this.tickCount % 2 == 0) {
+                MobUtils.spawnFireParticles(this, (ServerLevel) this.level());
+            }
         }
 
         moveAnalysis.update();
+    }
+
+    @Override
+    public boolean displayFireAnimation() {
+        return false;
     }
 
     @Override
@@ -116,10 +126,7 @@ public class BrainBug extends PathfinderMob {
 
     @Override
     protected void doPush(@NotNull net.minecraft.world.entity.Entity entity) {
-        if (
-            entity instanceof ChariotBug
-                && !BrainBugCarrySystem.get().canMoveCarried(this)
-        ) {
+        if (entity instanceof ChariotBug && !BrainBugCarrySystem.get().canMoveCarried(this)) {
             return;
         }
         if (entity.getType().is(ModTags.ARACHNIDS)) {
