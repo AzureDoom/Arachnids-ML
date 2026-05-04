@@ -26,8 +26,8 @@ public class WarriorBugTree {
     public static BehaviorNode<WarriorBug> create() {
         var fleeExplosive = new ExplosiveFleeAction<WarriorBug>(
             0.42D,
-            32.0D,
             16.0D,
+            8.0D,
             120
         );
 
