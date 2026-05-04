@@ -2,8 +2,10 @@ package mod.azure.arachnids.ai.actions;
 
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.Vec3;
 
 import mod.azure.arachnids.ai.core.*;
+import mod.azure.arachnids.ai.util.MovementUtils;
 
 public final class IdleAction<E extends Mob> implements Action<E> {
 
@@ -39,6 +41,18 @@ public final class IdleAction<E extends Mob> implements Action<E> {
         var target = blackboard.get(AiKeys.TARGET, LivingEntity.class);
         if (target != null && target.isAlive()) {
             return ActionStatus.INTERRUPTED;
+        }
+
+        var dangerMove = MovementUtils.steerAwayFromDangerEntities(mob, Vec3.ZERO);
+
+        if (dangerMove.lengthSqr() > 0.0001D) {
+            var safe = MovementUtils.findSafeMovement(mob, dangerMove, new int[] { 0 });
+
+            if (!safe.equals(Vec3.ZERO)) {
+                mob.setDeltaMovement(safe.x, mob.getDeltaMovement().y, safe.z);
+                mob.hasImpulse = true;
+                return ActionStatus.RUNNING;
+            }
         }
 
         age++;
