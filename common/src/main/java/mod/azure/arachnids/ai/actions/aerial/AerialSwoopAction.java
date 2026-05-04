@@ -36,7 +36,7 @@ public final class AerialSwoopAction<E extends Mob> implements Action<E> {
 
     private boolean hasHit;
 
-    private static final double PICKUP_CHANCE = 0.95D;
+    private static final double PICKUP_CHANCE = 0.35D;
 
     private final BiPredicate<E, LivingEntity> pickupHandler;
 
