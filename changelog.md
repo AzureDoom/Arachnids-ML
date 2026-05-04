@@ -1,8 +1,6 @@
-v0.1.1
+v0.2.0
 
-- Fixes edge cases with pathfinding when going up/down blocks.
-- Fixes Warrior Squads not always assigning a frontline attacker.
-- Fixes GC issue with Warrior Tree. 
-- Fixes some GC issues with Squad cleanup from dead Warriors. 
-- Reduced the death animation time for all bugs.
-- Fixes a bug that caused new colonies to spawn without members. 
+- Fixes Hoppers health/damage values being swapped.
+- Changes fire effects from vanilla fire texture to using custom particles now.
+- Cleaned up more of the AI for GC reasons. 
+- Moved ground pathing to a using a custom astar system. 
