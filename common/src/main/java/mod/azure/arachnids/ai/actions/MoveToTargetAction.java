@@ -5,17 +5,27 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Collections;
+import java.util.List;
+
 import mod.azure.arachnids.ai.core.*;
 import mod.azure.arachnids.ai.util.AiDebugUtils;
+import mod.azure.arachnids.ai.util.CustomAStar;
 import mod.azure.arachnids.ai.util.MovementUtils;
 
 public final class MoveToTargetAction<E extends Mob> implements Action<E> {
 
-    private static final double LEDGE_CHECK_DISTANCE = 1.6D;
+    private static final int DANGER_LEAP_STUCK_TICKS = 8;
 
-    private static final double MIN_LANDING_DISTANCE = 2.5D;
+    private static final int DANGER_LEAP_COOLDOWN_TICKS = 30;
 
-    private static final double MAX_LANDING_DISTANCE = 4.5D;
+    private static final double DANGER_LEAP_DISTANCE = 3.0D;
+
+    private static final double DANGER_LEAP_VERTICAL_POWER = 0.75D;
+
+    private static final double DANGER_LEAP_HORIZONTAL_POWER = 0.75D;
+
+    private int dangerLeapCooldown = 0;
 
     private final double stopDistanceSqr;
 
@@ -41,6 +51,12 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
 
     private int blockBreakCooldown = 0;
 
+    private List<BlockPos> path = Collections.emptyList();
+
+    private int pathIndex = 0;
+
+    private int repathCooldown = 0;
+
     public MoveToTargetAction(
         double stopDistance,
         double speed,
@@ -59,6 +75,10 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         detourDirection = Vec3.ZERO;
         detourTicks = 0;
         blockBreakCooldown = 0;
+        dangerLeapCooldown = 0;
+        path = Collections.emptyList();
+        pathIndex = 0;
+        repathCooldown = 0;
     }
 
     @Override
@@ -86,18 +106,70 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         }
 
         if (mob.distanceToSqr(target) <= stopDistanceSqr) {
+            var dangerMove = MovementUtils.steerAwayFromDangerEntities(mob, Vec3.ZERO);
+
+            if (dangerMove.lengthSqr() > 0.0001D) {
+                var safe = MovementUtils.findSafeMovement(mob, dangerMove, steerBias);
+
+                if (!safe.equals(Vec3.ZERO)) {
+                    mob.setDeltaMovement(safe.x, mob.getDeltaMovement().y, safe.z);
+                    mob.hasImpulse = true;
+                    faceTarget(mob, target);
+                    return ActionStatus.RUNNING;
+                }
+            }
+
             mob.setDeltaMovement(mob.getDeltaMovement().scale(0.4D));
             faceTarget(mob, target);
             return ActionStatus.SUCCESS;
         }
 
-        var direction = target.position().subtract(mob.position());
-
-        if (direction.lengthSqr() < 0.0001D) {
-            return ActionStatus.SUCCESS;
+        if (repathCooldown > 0) {
+            repathCooldown--;
         }
 
-        return applyFlatMovement(mob, target, direction);
+        if (repathCooldown <= 0 || path.isEmpty() || pathIndex >= path.size()) {
+            var goalRadius = 1;
+
+            path = CustomAStar.findPath(
+                mob,
+                mob.blockPosition(),
+                target.blockPosition(),
+                64,
+                goalRadius
+            );
+
+            pathIndex = path.size() > 1 ? 1 : 0;
+            repathCooldown = 10;
+        }
+
+        if (!path.isEmpty()) {
+            while (
+                pathIndex < path.size() && mob.position()
+                    .distanceToSqr(Vec3.atBottomCenterOf(path.get(pathIndex))) < 1.0D
+            ) {
+                pathIndex++;
+            }
+
+            if (pathIndex < path.size()) {
+                var waypoint = Vec3.atBottomCenterOf(path.get(pathIndex));
+                var direction = waypoint.subtract(mob.position());
+
+                if (direction.lengthSqr() > 0.0001D) {
+                    return applyFlatMovement(mob, target, direction);
+                }
+            }
+        }
+
+        var directDirection = target.position().subtract(mob.position());
+
+        if (directDirection.lengthSqr() > 0.0001D) {
+            return applyFlatMovement(mob, target, directDirection);
+        }
+
+        halt(mob);
+        faceTarget(mob, target);
+        return ActionStatus.RUNNING;
     }
 
     @Override
@@ -123,6 +195,9 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         if (blockBreakCooldown > 0) {
             blockBreakCooldown--;
         }
+        if (dangerLeapCooldown > 0) {
+            dangerLeapCooldown--;
+        }
         var horizontal = new Vec3(direction.x, 0.0D, direction.z);
 
         if (horizontal.lengthSqr() < 0.01D) {
@@ -131,7 +206,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         }
 
         var forward = horizontal.normalize();
-        var movement = forward.scale(speed);
+        var movement = MovementUtils.steerAwayFromDangerEntities(mob, forward.scale(speed));
 
         var movedSqr = mob.position().distanceToSqr(lastPos);
         lastPos = mob.position();
@@ -177,6 +252,37 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                 if (tryBreakBlockingPathBlock(mob, target, forward)) {
                     blockBreakCooldown = BLOCK_BREAK_COOLDOWN_TICKS;
                     stuckTicks = 0;
+                    faceTarget(mob, target);
+                    return ActionStatus.RUNNING;
+                }
+            }
+
+            if (
+                stuckTicks >= DANGER_LEAP_STUCK_TICKS
+                    && dangerLeapCooldown <= 0
+                    && mob.onGround()
+                    && MovementUtils.hasNearbyDangerEntity(mob)
+            ) {
+                var leapDirection = new Vec3(movement.x, 0.0D, movement.z);
+
+                if (leapDirection.lengthSqr() < 0.0001D) {
+                    leapDirection = forward;
+                }
+
+                if (MovementUtils.hasSafeLandingAfterLeap(mob, leapDirection, DANGER_LEAP_DISTANCE)) {
+                    var leap = leapDirection.normalize().scale(DANGER_LEAP_HORIZONTAL_POWER);
+
+                    mob.setDeltaMovement(
+                        leap.x,
+                        DANGER_LEAP_VERTICAL_POWER,
+                        leap.z
+                    );
+
+                    mob.hasImpulse = true;
+                    dangerLeapCooldown = DANGER_LEAP_COOLDOWN_TICKS;
+                    stuckTicks = 0;
+                    detourTicks = 0;
+
                     faceTarget(mob, target);
                     return ActionStatus.RUNNING;
                 }

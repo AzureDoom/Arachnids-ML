@@ -26,6 +26,11 @@ public record ModTags() {
         CommonMod.modResource("danger_fluids")
     );
 
+    public static final TagKey<EntityType<?>> DANGER_ENTITIES = TagKey.create(
+        Registries.ENTITY_TYPE,
+        CommonMod.modResource("danger_entities")
+    );
+
     public static final TagKey<EntityType<?>> ARACHNIDS = TagKey.create(
         Registries.ENTITY_TYPE,
         CommonMod.modResource("arachnids")

@@ -44,7 +44,7 @@ public final class MovementUtils {
         var level = mob.level();
         var feetY = mob.getBoundingBox().minY;
         var side = new Vec3(-forward.z, 0.0D, forward.x);
-        var halfW = (mob.getBbWidth() / 2.0D) + 0.6D;
+        var halfW = (mob.getBbWidth() / 2.0D) + 0.15D;
 
         for (var d = 0.25D; d <= distance; d += 0.25D) {
             var center = mob.position().add(forward.scale(d));
@@ -143,5 +143,104 @@ public final class MovementUtils {
 
         preferred.addAll(other);
         return preferred.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    public static Vec3 getDangerEntityRepulsion(Mob mob) {
+        final var dangerRadius = 5.0D;
+        final var dangerRadiusSqr = dangerRadius * dangerRadius;
+        final var avoidStrength = 1.25D;
+
+        var away = Vec3.ZERO;
+        var box = mob.getBoundingBox().inflate(dangerRadius);
+
+        for (var entity : mob.level().getEntities(mob, box)) {
+            if (!entity.getType().is(ModTags.DANGER_ENTITIES)) {
+                continue;
+            }
+
+            var offset = mob.position().subtract(entity.position());
+            var distSqr = offset.lengthSqr();
+
+            if (distSqr > dangerRadiusSqr) {
+                continue;
+            }
+
+            if (distSqr < 0.0001D) {
+                offset = Vec3.directionFromRotation(0.0F, mob.getYRot()).scale(-1.0D);
+                distSqr = 0.0001D;
+            }
+
+            var distance = Math.sqrt(distSqr);
+            var weight = 1.0D - distance / dangerRadius;
+
+            away = away.add(offset.normalize().scale(weight * avoidStrength));
+        }
+
+        return away;
+    }
+
+    public static Vec3 steerAwayFromDangerEntities(Mob mob, Vec3 desiredMovement) {
+        var away = getDangerEntityRepulsion(mob);
+
+        if (away.lengthSqr() < 0.0001D) {
+            return desiredMovement;
+        }
+
+        var desiredHorizontal = new Vec3(desiredMovement.x, 0.0D, desiredMovement.z);
+        var desiredLength = desiredHorizontal.length();
+
+        if (desiredLength < 0.001D) {
+            return away.normalize().scale(0.12D);
+        }
+
+        var blended = desiredHorizontal.add(away);
+
+        if (blended.lengthSqr() < 0.0001D) {
+            return away.normalize().scale(desiredLength);
+        }
+
+        return blended.normalize().scale(desiredLength);
+    }
+
+    public static boolean hasSafeLandingAfterLeap(Mob mob, Vec3 direction, double distance) {
+        if (direction.lengthSqr() < 0.0001D) {
+            return false;
+        }
+
+        var level = mob.level();
+        var forward = new Vec3(direction.x, 0.0D, direction.z).normalize();
+
+        var landingCenter = mob.position().add(forward.scale(distance));
+        var feetY = mob.getBoundingBox().minY;
+
+        var feetPos = BlockPos.containing(
+            landingCenter.x,
+            feetY,
+            landingCenter.z
+        );
+
+        var headPos = feetPos.above();
+
+        if (!isSafeBlock(level, feetPos)) {
+            return false;
+        }
+
+        if (!isSafeBlock(level, headPos)) {
+            return false;
+        }
+
+        if (!level.getBlockState(feetPos).getCollisionShape(level, feetPos).isEmpty()) {
+            return false;
+        }
+
+        if (!level.getBlockState(headPos).getCollisionShape(level, headPos).isEmpty()) {
+            return false;
+        }
+
+        return hasGroundWithinDrop(level, feetPos, 4);
+    }
+
+    public static boolean hasNearbyDangerEntity(Mob mob) {
+        return getDangerEntityRepulsion(mob).lengthSqr() > 0.0001D;
     }
 }

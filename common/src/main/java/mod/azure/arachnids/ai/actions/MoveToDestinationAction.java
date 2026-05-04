@@ -91,7 +91,10 @@ public final class MoveToDestinationAction<E extends Mob> implements Action<E> {
             return ActionStatus.RUNNING;
         }
 
-        var movement = horizontal.normalize().scale(speed);
+        var movement = MovementUtils.steerAwayFromDangerEntities(
+            mob,
+            horizontal.normalize().scale(speed)
+        );
         var safe = MovementUtils.findSafeMovement(mob, movement, steerBias);
 
         if (safe.equals(Vec3.ZERO)) {
