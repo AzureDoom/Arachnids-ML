@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -242,5 +243,110 @@ public final class MovementUtils {
 
     public static boolean hasNearbyDangerEntity(Mob mob) {
         return getDangerEntityRepulsion(mob).lengthSqr() > 0.0001D;
+    }
+
+    public static boolean canWallCrawl(Mob mob) {
+        return !mob.isInWater() && !mob.isVehicle();
+    }
+
+    public static boolean isClimbable(Level level, int x, int y, int z, boolean generous) {
+        var reachBox = new AABB(x, y, z, x + 1, y + 1, z + 1)
+            .inflate(generous ? 1.5D : 0.5D);
+
+        return !level.noBlockCollision(null, reachBox);
+    }
+
+    public static boolean isClimbable(Level level, BlockPos pos, boolean generous) {
+        return isClimbable(level, pos.getX(), pos.getY(), pos.getZ(), generous);
+    }
+
+    public static boolean isSafeClimbNode(Level level, Mob mob, BlockPos feet) {
+        var head = feet.above();
+
+        if (!isSafeBlock(level, feet)) {
+            return false;
+        }
+
+        if (!isSafeBlock(level, head)) {
+            return false;
+        }
+
+        if (!level.getBlockState(feet).getCollisionShape(level, feet).isEmpty()) {
+            return false;
+        }
+
+        if (!level.getBlockState(head).getCollisionShape(level, head).isEmpty()) {
+            return false;
+        }
+
+        return isClimbable(level, feet, false);
+    }
+
+    public static boolean needsWallCrawl(Mob mob, Vec3 wanted) {
+        if (!canWallCrawl(mob)) {
+            return false;
+        }
+
+        var center = BlockPos.containing(
+            mob.getBoundingBox().getCenter().x,
+            mob.getBoundingBox().getCenter().y,
+            mob.getBoundingBox().getCenter().z
+        );
+
+        if (!isClimbable(mob.level(), center, true)) {
+            return false;
+        }
+
+        var current = requiredMovementAt(mob, mob.blockPosition());
+        if (current == MovementType.CLIMB) {
+            return true;
+        }
+
+        var wantedBlock = BlockPos.containing(wanted.x, wanted.y, wanted.z);
+        var wantedType = requiredMovementAt(mob, wantedBlock);
+
+        if (wantedType == MovementType.CLIMB) {
+            return true;
+        }
+
+        return wantedBlock.equals(mob.blockPosition().above())
+            && wantedType == MovementType.JUMP;
+    }
+
+    public enum MovementType {
+        WALK,
+        JUMP,
+        CLIMB
+    }
+
+    public static MovementType requiredMovementAt(Mob mob, BlockPos pos) {
+        var below = pos.below();
+        var stateBelow = mob.level().getBlockState(below);
+
+        if (stateBelow.entityCanStandOn(mob.level(), below, mob)) {
+            return MovementType.WALK;
+        }
+
+        var twoBelow = below.below();
+        var stateTwoBelow = mob.level().getBlockState(twoBelow);
+
+        if (stateTwoBelow.entityCanStandOn(mob.level(), twoBelow, mob)) {
+            return MovementType.JUMP;
+        }
+
+        return MovementType.CLIMB;
+    }
+
+    public static Vec3 computeWallCrawlVelocity(Mob mob, Vec3 wanted, double speed) {
+        var center = mob.getBoundingBox().getCenter();
+        var offset = wanted.subtract(center);
+        var dist = offset.length();
+
+        if (dist < 0.1D) {
+            return Vec3.ZERO;
+        }
+
+        var clampedSpeed = Math.min(speed, dist);
+        return offset.normalize().scale(clampedSpeed);
     }
 }

@@ -7,11 +7,11 @@ import net.minecraft.world.level.Level;
 
 import java.util.*;
 
-public final class CustomAStar {
+public class CustomAStar {
 
-    private CustomAStar() {}
+    public CustomAStar() {}
 
-    private record Node(
+    public record Node(
         BlockPos pos,
         double g,
         double f,
@@ -25,8 +25,8 @@ public final class CustomAStar {
         Map<BlockPos, Double> bestCost = new HashMap<>();
         Set<BlockPos> closed = new HashSet<>();
 
-        var startFeet = normalizeFeet(level, start);
-        var goalFeet = normalizeFeet(level, goal);
+        var startFeet = normalizeFeet(start);
+        var goalFeet = normalizeFeet(goal);
 
         open.add(new Node(startFeet, 0.0D, heuristic(startFeet, goalFeet), null));
         bestCost.put(startFeet, 0.0D);
@@ -87,7 +87,7 @@ public final class CustomAStar {
         return Collections.emptyList();
     }
 
-    private static boolean isCloseEnoughToGoal(BlockPos pos, BlockPos goal, int goalRadius) {
+    public static boolean isCloseEnoughToGoal(BlockPos pos, BlockPos goal, int goalRadius) {
         var dx = pos.getX() - goal.getX();
         var dz = pos.getZ() - goal.getZ();
 
@@ -95,7 +95,7 @@ public final class CustomAStar {
             && Math.abs(pos.getY() - goal.getY()) <= 2;
     }
 
-    private static List<BlockPos> reconstruct(Node node) {
+    public static List<BlockPos> reconstruct(Node node) {
         LinkedList<BlockPos> result = new LinkedList<>();
 
         var current = node;
@@ -107,13 +107,13 @@ public final class CustomAStar {
         return result;
     }
 
-    private static double heuristic(BlockPos a, BlockPos b) {
+    public static double heuristic(BlockPos a, BlockPos b) {
         return Math.abs(a.getX() - b.getX())
             + Math.abs(a.getY() - b.getY()) * 1.5D
             + Math.abs(a.getZ() - b.getZ());
     }
 
-    private static List<BlockPos> neighbors(Level level, Mob mob, BlockPos pos) {
+    public static List<BlockPos> neighbors(Level level, Mob mob, BlockPos pos) {
         List<BlockPos> result = new ArrayList<>();
 
         int[][] dirs = {
@@ -144,11 +144,11 @@ public final class CustomAStar {
         }
     }
 
-    private static boolean canStandAt(Level level, Mob mob, BlockPos feet) {
+    public static boolean canStandAt(Level level, Mob mob, BlockPos feet) {
         return isSafeForMobFootprint(level, mob, feet);
     }
 
-    private static double movementCost(Level level, Mob mob, BlockPos from, BlockPos to) {
+    public static double movementCost(Level level, Mob mob, BlockPos from, BlockPos to) {
         if (!MovementUtils.isSafeBlock(level, to)) {
             return 9999.0D;
         }
@@ -183,7 +183,7 @@ public final class CustomAStar {
         return cost;
     }
 
-    private static BlockPos normalizeFeet(Level level, BlockPos pos) {
+    public static BlockPos normalizeFeet(BlockPos pos) {
         return pos;
     }
 

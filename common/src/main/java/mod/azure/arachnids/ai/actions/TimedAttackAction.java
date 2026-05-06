@@ -7,6 +7,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.function.Consumer;
 
 import mod.azure.arachnids.ai.core.*;
+import mod.azure.arachnids.ai.util.CrawlingManager;
 import mod.azure.arachnids.ai.util.MovementUtils;
 
 public final class TimedAttackAction<E extends Mob> implements Action<E> {
@@ -39,6 +40,10 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
 
     private int age;
 
+    // Captured at start() before the previous action's stop() clears the crawl flag.
+    // Used to maintain wall-crawling physics for the full duration of the attack.
+    private boolean wasCrawlingOnStart;
+
     public TimedAttackAction(
         String cooldownKey,
         int cooldownTicks,
@@ -58,8 +63,16 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
     @Override
     public void start(E mob, Blackboard blackboard, Cooldowns cooldowns) {
         this.age = 0;
+        // Capture BEFORE the previous action's stop() fires and clears isWallCrawling.
+        // wasRecentlyWallCrawling checks both the flag and remaining grace ticks.
+        this.wasCrawlingOnStart = CrawlingManager.wasRecentlyWallCrawling(mob);
         mob.hasImpulse = true;
         animationTrigger.accept(mob);
+
+        if (wasCrawlingOnStart) {
+            CrawlingManager.setWallCrawling(mob, true);
+            CrawlingManager.updateWallCrawlingPhysics(mob);
+        }
     }
 
     @Override
@@ -77,6 +90,14 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
         }
 
         mob.getLookControl().setLookAt(target, 30.0F, 30.0F);
+
+        // Keep crawling active for the full attack if we were crawling at start.
+        // Don't re-check isWallCrawling here — it will be false because we're the
+        // only action running and nothing is calling setWallCrawling(true) this tick.
+        if (wasCrawlingOnStart) {
+            CrawlingManager.setWallCrawling(mob, true);
+            CrawlingManager.updateWallCrawlingPhysics(mob);
+        }
 
         var dangerMove = MovementUtils.steerAwayFromDangerEntities(mob, Vec3.ZERO);
 
@@ -140,7 +161,12 @@ public final class TimedAttackAction<E extends Mob> implements Action<E> {
     }
 
     @Override
-    public void stop(E mob, Blackboard blackboard, ActionStatus reason) {}
+    public void stop(E mob, Blackboard blackboard, ActionStatus reason) {
+        wasCrawlingOnStart = false;
+        // Only clear crawling if still set — the next action's start() may need
+        // wasRecentlyWallCrawling to still return true from grace ticks.
+        // CrawlToTargetAction will re-establish or clear it on its next tick.
+    }
 
     @Override
     public boolean isInterruptible() {

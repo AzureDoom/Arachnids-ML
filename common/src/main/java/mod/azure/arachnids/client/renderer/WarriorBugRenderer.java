@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import mod.azure.arachnids.CommonMod;
 import mod.azure.arachnids.client.animator.WarriorAnimator;
+import mod.azure.arachnids.client.model.ArachnidCrawlingModelRenderer;
 import mod.azure.arachnids.mob.warriorbug.WarriorBug;
 
 public class WarriorBugRenderer extends AzEntityRenderer<WarriorBug> {
@@ -24,6 +25,7 @@ public class WarriorBugRenderer extends AzEntityRenderer<WarriorBug> {
 
                     return contextPipeline;
                 })
+                .setModelRenderer(ArachnidCrawlingModelRenderer::new)
                 .setAnimatorProvider(WarriorAnimator::new)
                 .setDeathMaxRotation(0F)
                 .setShadowRadius(1.5F)

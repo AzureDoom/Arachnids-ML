@@ -45,7 +45,7 @@ public final class TargetingUtils {
     public static Predicate<LivingEntity> inRangeOrVisible(Mob mob) {
         return e -> {
             double dist = mob.distanceToSqr(e);
-            return mob.hasLineOfSight(e);
+            return dist <= 4096 || mob.hasLineOfSight(e);
         };
     }
 

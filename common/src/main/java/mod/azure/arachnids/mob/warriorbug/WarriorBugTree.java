@@ -10,6 +10,7 @@ import mod.azure.arachnids.ai.core.BehaviorResult;
 import mod.azure.arachnids.ai.group.SimpleBugTacticalCoordinator;
 import mod.azure.arachnids.ai.group.SquadRegistry;
 import mod.azure.arachnids.ai.group.TacticalRole;
+import mod.azure.arachnids.ai.util.CrawlingManager;
 import mod.azure.arachnids.ai.util.TargetingUtils;
 import mod.azure.arachnids.colony.ColonyManager;
 import mod.azure.arachnids.colony.ColonyState;
@@ -40,6 +41,18 @@ public class WarriorBugTree {
         );
 
         var moveToTargetCombat = new MoveToTargetAction<WarriorBug>(
+            2.5D,
+            0.38D,
+            20
+        );
+
+        var crawlToTargetFast = new CrawlToTargetAction<WarriorBug>(
+            2.5D,
+            0.42D,
+            20
+        );
+
+        var crawlToTargetCombat = new CrawlToTargetAction<WarriorBug>(
             2.5D,
             0.38D,
             20
@@ -76,6 +89,46 @@ public class WarriorBugTree {
         );
 
         var flankerDestinationMove = new MoveToDestinationAction<WarriorBug>(
+            2.5D,
+            0.46D,
+            25,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var crawlRetreatMove = new CrawlToDestinationAction<WarriorBug>(
+            0.5D,
+            0.55D,
+            30,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var crawlSupportMove = new CrawlToDestinationAction<WarriorBug>(
+            3.5D,
+            0.25D,
+            25,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var crawlDestinationMove = new CrawlToDestinationAction<WarriorBug>(
+            2.5D,
+            0.38D,
+            25,
+            5.0D,
+            1.0D,
+            0.55D,
+            0.85D
+        );
+
+        var crawlFlankerDestinationMove = new CrawlToDestinationAction<WarriorBug>(
             2.5D,
             0.46D,
             25,
@@ -147,17 +200,32 @@ public class WarriorBugTree {
                         && (state == ColonyState.DEFEND || state == ColonyState.PANIC)
                 ) {
 
-                    if (TargetingUtils.isInAttackRange(bug, directive, 1.25D) && cooldowns.ready("heavy_attack")) {
+                    var yGapDirective = directive.getY() - bug.getY();
+                    var canReachDirective = yGapDirective <= 1.5D;
+                    if (
+                        canReachDirective && TargetingUtils.isInAttackRange(bug, directive, 1.25D) && cooldowns.ready(
+                            "heavy_attack"
+                        )
+                    ) {
                         blackboard.set(AiKeys.TARGET, directive);
                         return BehaviorResult.run(heavyAttack110, 110);
                     }
 
-                    if (TargetingUtils.isInAttackRange(bug, directive, 1.0D) && cooldowns.ready("normal_attack")) {
+                    if (
+                        canReachDirective && TargetingUtils.isInAttackRange(bug, directive, 1.0D) && cooldowns.ready(
+                            "normal_attack"
+                        )
+                    ) {
                         blackboard.set(AiKeys.TARGET, directive);
                         return BehaviorResult.run(normalAttack100, 100);
                     }
 
                     blackboard.set(AiKeys.TARGET, directive);
+
+                    if (CrawlingManager.shouldUseWallCrawlingTo(bug, directive)) {
+                        return BehaviorResult.run(crawlToTargetFast, 90);
+                    }
+
                     return BehaviorResult.run(moveToTargetFast, 90);
                 }
 
@@ -190,6 +258,11 @@ public class WarriorBugTree {
 
                 if (order.role() == TacticalRole.RETREATING && order.hasDestination()) {
                     blackboard.set(AiKeys.DESTINATION, order.destination());
+
+                    if (CrawlingManager.shouldUseWallCrawlingTo(bug, order.destination())) {
+                        return BehaviorResult.run(crawlRetreatMove, 30);
+                    }
+
                     return BehaviorResult.run(retreatMove, 30);
                 }
 
@@ -213,14 +286,29 @@ public class WarriorBugTree {
                             ))
                         ) {
                             blackboard.set(AiKeys.DESTINATION, order.destination());
+
+                            if (CrawlingManager.shouldUseWallCrawlingTo(bug, order.destination())) {
+                                return BehaviorResult.run(crawlSupportMove, 25);
+                            }
+
                             return BehaviorResult.run(supportMove, 25);
                         }
                     }
 
-                    if (TargetingUtils.isInAttackRange(bug, target, 1.25D) && cooldowns.ready("heavy_attack")) {
+                    var yGapSquad = target.getY() - bug.getY();
+                    var canReachSquad = yGapSquad <= 1.5D;
+                    if (
+                        canReachSquad && TargetingUtils.isInAttackRange(bug, target, 1.25D) && cooldowns.ready(
+                            "heavy_attack"
+                        )
+                    ) {
                         return BehaviorResult.run(heavyAttack100, 100);
                     }
-                    if (TargetingUtils.isInAttackRange(bug, target, 1.0D) && cooldowns.ready("normal_attack")) {
+                    if (
+                        canReachSquad && TargetingUtils.isInAttackRange(bug, target, 1.0D) && cooldowns.ready(
+                            "normal_attack"
+                        )
+                    ) {
                         return BehaviorResult.run(normalAttack80, 80);
                     }
                     if (order.hasDestination()) {
@@ -228,23 +316,52 @@ public class WarriorBugTree {
                         blackboard.set(AiKeys.DESTINATION, order.destination());
 
                         if (order.role() == TacticalRole.FLANKER) {
+                            if (CrawlingManager.shouldUseWallCrawlingTo(bug, order.destination())) {
+                                return BehaviorResult.run(crawlFlankerDestinationMove, 25);
+                            }
+
                             return BehaviorResult.run(flankerDestinationMove, 25);
+                        }
+
+                        if (CrawlingManager.shouldUseWallCrawlingTo(bug, order.destination())) {
+                            return BehaviorResult.run(crawlDestinationMove, 25);
                         }
 
                         return BehaviorResult.run(destinationMove, 25);
                     }
+
+                    if (CrawlingManager.shouldUseWallCrawlingTo(bug, target)) {
+                        return BehaviorResult.run(crawlToTargetCombat, 20);
+                    }
+
                     return BehaviorResult.run(moveToTargetCombat, 20);
                 }
             }
 
             var target = blackboard.get(AiKeys.TARGET, LivingEntity.class);
             if (target != null && target.isAlive()) {
-                if (TargetingUtils.isInAttackRange(bug, target, 1.25D) && cooldowns.ready("heavy_attack")) {
+                var yGap = target.getY() - bug.getY();
+                var canReachVertically = yGap <= 1.5D;
+
+                if (
+                    canReachVertically && TargetingUtils.isInAttackRange(bug, target, 1.25D) && cooldowns.ready(
+                        "heavy_attack"
+                    )
+                ) {
                     return BehaviorResult.run(heavyAttack100, 100);
                 }
-                if (TargetingUtils.isInAttackRange(bug, target, 1.0D) && cooldowns.ready("normal_attack")) {
+                if (
+                    canReachVertically && TargetingUtils.isInAttackRange(bug, target, 1.0D) && cooldowns.ready(
+                        "normal_attack"
+                    )
+                ) {
                     return BehaviorResult.run(normalAttack80, 80);
                 }
+
+                if (CrawlingManager.shouldUseWallCrawlingTo(bug, target)) {
+                    return BehaviorResult.run(crawlToTargetCombat, 20);
+                }
+
                 return BehaviorResult.run(moveToTargetCombat, 20);
             }
 

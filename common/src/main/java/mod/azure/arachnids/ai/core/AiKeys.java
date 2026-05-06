@@ -32,5 +32,7 @@ public final class AiKeys {
 
     public static final String DESTINATION = "destination";
 
+    public static final String WALL_CRAWLING = "wall_crawling";
+
     private AiKeys() {}
 }
