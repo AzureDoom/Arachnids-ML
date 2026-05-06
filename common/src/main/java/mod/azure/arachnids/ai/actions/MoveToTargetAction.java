@@ -156,7 +156,8 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                 var direction = waypoint.subtract(mob.position());
 
                 if (direction.lengthSqr() > 0.0001D) {
-                    return applyFlatMovement(mob, target, direction);
+                    applyFlatMovement(mob, target, direction);
+                    return ActionStatus.RUNNING;
                 }
             }
         }
@@ -164,7 +165,8 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         var directDirection = target.position().subtract(mob.position());
 
         if (directDirection.lengthSqr() > 0.0001D) {
-            return applyFlatMovement(mob, target, directDirection);
+            applyFlatMovement(mob, target, directDirection);
+            return ActionStatus.RUNNING;
         }
 
         halt(mob);
@@ -191,7 +193,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         return priority;
     }
 
-    private ActionStatus applyFlatMovement(E mob, LivingEntity target, Vec3 direction) {
+    private void applyFlatMovement(E mob, LivingEntity target, Vec3 direction) {
         if (blockBreakCooldown > 0) {
             blockBreakCooldown--;
         }
@@ -202,7 +204,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
 
         if (horizontal.lengthSqr() < 0.01D) {
             halt(mob);
-            return ActionStatus.RUNNING;
+            return;
         }
 
         var forward = horizontal.normalize();
@@ -227,7 +229,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                 mob.setDeltaMovement(detourSafe.x, mob.getDeltaMovement().y, detourSafe.z);
                 mob.hasImpulse = true;
                 faceTarget(mob, target);
-                return ActionStatus.RUNNING;
+                return;
             }
 
             detourTicks = 0;
@@ -241,7 +243,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                     blockBreakCooldown = BLOCK_BREAK_COOLDOWN_TICKS;
                     stuckTicks = 0;
                     faceTarget(mob, target);
-                    return ActionStatus.RUNNING;
+                    return;
                 }
             }
 
@@ -253,7 +255,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                     blockBreakCooldown = BLOCK_BREAK_COOLDOWN_TICKS;
                     stuckTicks = 0;
                     faceTarget(mob, target);
-                    return ActionStatus.RUNNING;
+                    return;
                 }
             }
 
@@ -284,7 +286,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                     detourTicks = 0;
 
                     faceTarget(mob, target);
-                    return ActionStatus.RUNNING;
+                    return;
                 }
             }
 
@@ -301,7 +303,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
                 mob.hasImpulse = true;
                 stuckTicks = 0;
                 faceTarget(mob, target);
-                return ActionStatus.RUNNING;
+                return;
             }
         }
 
@@ -310,7 +312,7 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
         if (safe.equals(Vec3.ZERO)) {
             halt(mob);
             faceTarget(mob, target);
-            return ActionStatus.RUNNING;
+            return;
         }
 
         mob.setDeltaMovement(safe.x, mob.getDeltaMovement().y, safe.z);
@@ -322,8 +324,6 @@ public final class MoveToTargetAction<E extends Mob> implements Action<E> {
             mob.position(),
             target.position()
         );
-
-        return ActionStatus.RUNNING;
     }
 
     private void halt(E mob) {

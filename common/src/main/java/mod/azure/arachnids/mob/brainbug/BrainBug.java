@@ -125,7 +125,7 @@ public class BrainBug extends PathfinderMob {
     }
 
     @Override
-    protected void doPush(@NotNull net.minecraft.world.entity.Entity entity) {
+    protected void doPush(@NotNull Entity entity) {
         if (entity instanceof ChariotBug && !BrainBugCarrySystem.get().canMoveCarried(this)) {
             return;
         }
