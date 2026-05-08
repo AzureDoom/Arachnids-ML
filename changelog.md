@@ -1,6 +1,5 @@
-v0.2.0
+v0.3.0
 
-- Fixes Hoppers health/damage values being swapped.
-- Changes fire effects from vanilla fire texture to using custom particles now.
-- Cleaned up more of the AI for GC reasons. 
-- Moved ground pathing to a using a custom astar system. 
+- Updated Workers to join Warrior squads as a digging supporter, that will dig to the target if needed.
+- Workers will now dig up blocks and use them to build a dome around Brain bugs if above ground.
+- Adds a basic WIP crawling system for warriors. 
