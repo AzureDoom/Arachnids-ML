@@ -235,4 +235,27 @@ public final class CrawlingManager {
 
         return mob.getBbHeight() / 2.0D;
     }
+
+    public static boolean shouldUseWallCrawlingToTarget(Mob mob, LivingEntity target) {
+        if (!canWallCrawl(mob) || target == null || !target.isAlive()) {
+            return false;
+        }
+
+        var yDiff = target.blockPosition().getY() - mob.blockPosition().getY();
+        var absYDiff = Math.abs(yDiff);
+
+        if (absYDiff < 3) {
+            return false;
+        }
+
+        var horizontalDistSqr = mob.position()
+            .multiply(1.0D, 0.0D, 1.0D)
+            .distanceToSqr(target.position().multiply(1.0D, 0.0D, 1.0D));
+
+        if (horizontalDistSqr <= 8.0D * 8.0D) {
+            return true;
+        }
+
+        return MovementUtils.needsWallCrawl(mob, target.position());
+    }
 }

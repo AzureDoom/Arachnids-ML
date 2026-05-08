@@ -222,7 +222,7 @@ public class WarriorBugTree {
 
                     blackboard.set(AiKeys.TARGET, directive);
 
-                    if (CrawlingManager.shouldUseWallCrawlingTo(bug, directive)) {
+                    if (CrawlingManager.shouldUseWallCrawlingToTarget(bug, directive)) {
                         return BehaviorResult.run(crawlToTargetFast, 90);
                     }
 
@@ -358,7 +358,7 @@ public class WarriorBugTree {
                     return BehaviorResult.run(normalAttack80, 80);
                 }
 
-                if (CrawlingManager.shouldUseWallCrawlingTo(bug, target)) {
+                if (CrawlingManager.shouldUseWallCrawlingToTarget(bug, target)) {
                     return BehaviorResult.run(crawlToTargetCombat, 20);
                 }
 
