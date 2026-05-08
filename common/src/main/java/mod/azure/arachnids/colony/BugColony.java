@@ -56,6 +56,10 @@ public final class BugColony {
 
     private final ColonyTunnelDigger tunnelDigger = new ColonyTunnelDigger();
 
+    private final ColonyBlockStore blockStore = new ColonyBlockStore();
+
+    private final ColonyDomeBuilder domeBuilder = new ColonyDomeBuilder();
+
     private ColonyState state = ColonyState.PEACEFUL;
 
     private boolean disbandPending = false;
@@ -91,10 +95,8 @@ public final class BugColony {
     }
 
     void initialSpawn(ServerLevel level) {
-        if (initialSpawnDone) {
+        if (initialSpawnDone)
             return;
-        }
-
         initialSpawnDone = true;
         doInitialSpawn(level);
         tickBossBar(level);
@@ -115,7 +117,7 @@ public final class BugColony {
             else
                 virtualPop.regenWorker(1);
         }
-        for (int i = 0; i < MAX_WARRIORS && !isAtActiveCap(); i++) {
+        for (var i = 0; i < MAX_WARRIORS && !isAtActiveCap(); i++) {
             var wa = spawner.trySpawnWarrior(level, bounds, brain, rng);
             if (wa != null)
                 registerWarrior(wa);
@@ -152,8 +154,7 @@ public final class BugColony {
 
         threatEval.tick(level, bounds.territoryAABB());
         var newState = threatEval.evaluateState();
-
-        if (!isBrainProtected(level))
+        if (!isBrainProtected())
             newState = ColonyState.PANIC;
         state = newState;
 
@@ -172,15 +173,15 @@ public final class BugColony {
         }
 
         pruneDeadMembers(level);
-
         tickBossBar(level);
     }
 
-    public void disband() {
-        disbandPending = true;
-        state = ColonyState.DISBANDED;
-        bossBar.removeAllPlayers();
-        bossBar.setVisible(false);
+    private void tickConstruction(ServerLevel level) {
+        tunnelDigger.plan(level, bounds.centre(), rng);
+
+        if (isAboveGround()) {
+            domeBuilder.plan(level, bounds.centre());
+        }
     }
 
     public void registerWorker(WorkerBug bug) {
@@ -205,27 +206,33 @@ public final class BugColony {
             || activeHoppers.contains(id) || activeChariots.contains(id);
     }
 
-    public void onMemberHurt(Mob member, DamageSource source, float amount) {
+    public void onMemberHurt(DamageSource source, float amount) {
         threatEval.onMemberHurt(source, amount);
     }
 
     public void onMemberDeath(Mob member) {
         var id = member.getUUID();
-        if (activeChariots.remove(id)) {
+        if (activeChariots.remove(id))
             virtualPop.killVirtualChariots();
-        } else if (activeWorkers.remove(id)) {
+        else if (activeWorkers.remove(id))
             virtualPop.killVirtualWorker();
-        } else if (activeWarriors.remove(id)) {
+        else if (activeWarriors.remove(id))
             virtualPop.killVirtualWarrior();
-        } else if (activeHoppers.remove(id)) {
+        else if (activeHoppers.remove(id))
             virtualPop.killVirtualHopper();
-        } else {
+        else
             activeChariots.remove(id);
-        }
     }
 
     public void onExplosion() {
         threatEval.onExplosion();
+    }
+
+    public void disband() {
+        disbandPending = true;
+        state = ColonyState.DISBANDED;
+        bossBar.removeAllPlayers();
+        bossBar.setVisible(false);
     }
 
     public ColonyState getState() {
@@ -248,6 +255,18 @@ public final class BugColony {
         return warriorDirective;
     }
 
+    public ColonyTunnelDigger getTunnelDigger() {
+        return tunnelDigger;
+    }
+
+    public ColonyBlockStore getBlockStore() {
+        return blockStore;
+    }
+
+    public ColonyDomeBuilder getDomeBuilder() {
+        return domeBuilder;
+    }
+
     public int activeWorkerCount() {
         return activeWorkers.size();
     }
@@ -264,19 +283,14 @@ public final class BugColony {
         return activeChariots.size();
     }
 
+    public boolean hasLivingWorkers() {
+        return !activeWorkers.isEmpty() || virtualPop.getVirtualWorkers() > 0;
+    }
+
     public boolean isAtActiveCap() {
-        int current =
-            activeWorkers.size()
-                + activeWarriors.size()
-                + activeChariots.size()
-                + activeHoppers.size();
-
-        int max =
-            MAX_WORKERS
-                + MAX_WARRIORS
-                + MAX_CHARIOTS
-                + MAX_HOPPERS;
-
+        int current = activeWorkers.size() + activeWarriors.size()
+            + activeChariots.size() + activeHoppers.size();
+        int max = MAX_WORKERS + MAX_WARRIORS + MAX_CHARIOTS + MAX_HOPPERS;
         return current >= max;
     }
 
@@ -284,106 +298,8 @@ public final class BugColony {
         return bounds.centre();
     }
 
-    public ColonyTunnelDigger getTunnelDigger() {
-        return tunnelDigger;
-    }
-
-    public boolean hasLivingWorkers() {
-        return !activeWorkers.isEmpty() || virtualPop.getVirtualWorkers() > 0;
-    }
-
-    private static ListTag saveUuidSet(Set<UUID> ids) {
-        var list = new ListTag();
-
-        for (var id : ids) {
-            var entry = new CompoundTag();
-            entry.putUUID("Id", id);
-            list.add(entry);
-        }
-
-        return list;
-    }
-
-    private static void loadUuidSet(CompoundTag tag, String key, Set<UUID> target) {
-        target.clear();
-
-        if (!tag.contains(key, Tag.TAG_LIST))
-            return;
-
-        var list = tag.getList(key, Tag.TAG_COMPOUND);
-
-        for (var i = 0; i < list.size(); i++) {
-            var entry = list.getCompound(i);
-
-            if (entry.hasUUID("Id")) {
-                target.add(entry.getUUID("Id"));
-            }
-        }
-    }
-
-    public CompoundTag save() {
-        var tag = new CompoundTag();
-
-        tag.put("Bounds", bounds.save());
-        tag.putString("State", state.name());
-        tag.putBoolean("DisbandPending", disbandPending);
-        tag.putBoolean("InitialSpawnDone", initialSpawnDone);
-
-        tag.put("ActiveWorkers", saveUuidSet(activeWorkers));
-        tag.put("ActiveWarriors", saveUuidSet(activeWarriors));
-        tag.put("ActiveHoppers", saveUuidSet(activeHoppers));
-        tag.put("ActiveChariots", saveUuidSet(activeChariots));
-
-        tag.put("VirtualPopulation", virtualPop.save());
-        tag.put("Regen", regen.save());
-        tag.put("Threats", threatEval.save());
-
-        return tag;
-    }
-
-    public static BugColony load(BrainBug brain, CompoundTag tag, ServerLevel level) {
-        BugColony colony = new BugColony(brain);
-
-        if (tag.contains("Bounds", Tag.TAG_COMPOUND)) {
-            colony.bounds = ColonyBounds.load(tag.getCompound("Bounds"));
-        }
-
-        if (tag.contains("State", Tag.TAG_STRING)) {
-            try {
-                colony.state = ColonyState.valueOf(tag.getString("State"));
-            } catch (IllegalArgumentException ignored) {
-                colony.state = ColonyState.PEACEFUL;
-            }
-        }
-
-        colony.disbandPending = tag.getBoolean("DisbandPending");
-        colony.initialSpawnDone = tag.getBoolean("InitialSpawnDone");
-
-        loadUuidSet(tag, "ActiveWorkers", colony.activeWorkers);
-        loadUuidSet(tag, "ActiveWarriors", colony.activeWarriors);
-        loadUuidSet(tag, "ActiveHoppers", colony.activeHoppers);
-        loadUuidSet(tag, "ActiveChariots", colony.activeChariots);
-
-        if (tag.contains("VirtualPopulation", Tag.TAG_COMPOUND)) {
-            colony.virtualPop.load(tag.getCompound("VirtualPopulation"));
-        }
-
-        if (tag.contains("Regen", Tag.TAG_COMPOUND)) {
-            colony.regen.load(tag.getCompound("Regen"));
-        }
-
-        if (tag.contains("Threats", Tag.TAG_COMPOUND)) {
-            colony.threatEval.load(tag.getCompound("Threats"), level);
-        }
-
-        colony.updateBossBar();
-
-        return colony;
-    }
-
     private void updateWarriorDirectives(ServerLevel level) {
         var highest = threatEval.highestThreat();
-
         if (state == ColonyState.PEACEFUL || highest == null) {
             warriorDirective = null;
             return;
@@ -423,9 +339,8 @@ public final class BugColony {
                 var w = spawner.trySpawnChariot(level, bounds, brain, rng);
                 if (w != null)
                     registerChariot(w);
-            } else {
+            } else
                 virtualPop.regenChariot(1);
-            }
         }
 
         var wantWorkers = (MAX_WORKERS - activeWorkers.size()) - virtualPop.getVirtualWorkers();
@@ -434,9 +349,8 @@ public final class BugColony {
                 var w = spawner.trySpawnWorker(level, bounds, brain, rng);
                 if (w != null)
                     registerWorker(w);
-            } else {
+            } else
                 virtualPop.regenWorker(1);
-            }
         }
 
         int wantWarriors = (MAX_WARRIORS - activeWarriors.size()) - virtualPop.getVirtualWarriors();
@@ -445,9 +359,8 @@ public final class BugColony {
                 var wa = spawner.trySpawnWarrior(level, bounds, brain, rng);
                 if (wa != null)
                     registerWarrior(wa);
-            } else {
+            } else
                 virtualPop.regenWarrior(1);
-            }
         }
 
         if (aboveGround) {
@@ -457,15 +370,10 @@ public final class BugColony {
                     var h = spawner.trySpawnHopper(level, bounds, brain, rng);
                     if (h != null)
                         registerHopper(h);
-                } else {
+                } else
                     virtualPop.regenHopper(1);
-                }
             }
         }
-    }
-
-    private void tickConstruction(ServerLevel level) {
-        tunnelDigger.plan(level, bounds.centre(), rng);
     }
 
     private void despawnFarMembers(ServerLevel level) {
@@ -477,27 +385,21 @@ public final class BugColony {
 
     private void despawnSet(ServerLevel level, Set<UUID> members) {
         List<Entity> discardEntities = new ArrayList<>();
-
         var iterator = members.iterator();
-
         while (iterator.hasNext()) {
             var id = iterator.next();
             var entity = level.getEntity(id);
-
             if (entity == null || !entity.isAlive()) {
                 iterator.remove();
                 continue;
             }
-
             if (!isPlayerNear(level) && bounds.isFarAway(entity)) {
                 discardEntities.add(entity);
                 iterator.remove();
             }
         }
-
-        for (var entity : discardEntities) {
+        for (var entity : discardEntities)
             entity.discard();
-        }
     }
 
     private void pruneDeadMembers(ServerLevel level) {
@@ -524,11 +426,10 @@ public final class BugColony {
         return brain.getBlockY() >= surfY - 2;
     }
 
-    private boolean isBrainProtected(ServerLevel level) {
+    private boolean isBrainProtected() {
         if (!isAboveGround())
             return true;
-        var brainPos = brain.blockPosition();
-        return bounds.isInsideTerritory(brainPos);
+        return bounds.isInsideTerritory(brain.blockPosition());
     }
 
     private boolean isPlayerNear(ServerLevel level) {
@@ -542,23 +443,25 @@ public final class BugColony {
 
     private void tickBossBar(ServerLevel level) {
         var expanded = bounds.territoryAABB().inflate(32);
-        var nearby = level.getEntitiesOfClass(
-            ServerPlayer.class,
-            expanded,
-            p -> !p.isSpectator()
-        );
-
-        for (var player : nearby) {
+        var nearby = level.getEntitiesOfClass(ServerPlayer.class, expanded, p -> !p.isSpectator());
+        for (var player : nearby)
             bossBar.addPlayer(player);
-        }
-
-        for (var player : List.copyOf(bossBar.getPlayers())) {
-            if (!nearby.contains(player)) {
+        for (var player : List.copyOf(bossBar.getPlayers()))
+            if (!nearby.contains(player))
                 bossBar.removePlayer(player);
-            }
-        }
-
         updateBossBar();
+    }
+
+    private void updateBossBar() {
+        bossBar.setName(Component.literal("Bug Colony - " + formatState()));
+        bossBar.setColor(colorState());
+        var maxMembers = MAX_WORKERS + MAX_WARRIORS + MAX_CHARIOTS + MAX_HOPPERS;
+        var current = activeChariots.size() + virtualPop.getVirtualChariots()
+            + activeWorkers.size() + virtualPop.getVirtualWorkers()
+            + activeWarriors.size() + virtualPop.getVirtualWarriors()
+            + activeHoppers.size() + virtualPop.getVirtualHoppers();
+        bossBar.setProgress(Math.clamp((float) current / maxMembers, 0.0f, 1.0f));
+        bossBar.setVisible(!disbandPending);
     }
 
     private String formatState() {
@@ -578,19 +481,88 @@ public final class BugColony {
         };
     }
 
-    private void updateBossBar() {
-        bossBar.setName(Component.literal("Bug Colony - " + formatState()));
-        bossBar.setColor(colorState());
+    private static ListTag saveUuidSet(Set<UUID> ids) {
+        var list = new ListTag();
+        for (var id : ids) {
+            var entry = new CompoundTag();
+            entry.putUUID("Id", id);
+            list.add(entry);
+        }
+        return list;
+    }
 
-        var maxMembers = MAX_WORKERS + MAX_WARRIORS + MAX_CHARIOTS + MAX_HOPPERS;
+    private static void loadUuidSet(CompoundTag tag, String key, Set<UUID> target) {
+        target.clear();
+        if (!tag.contains(key, Tag.TAG_LIST))
+            return;
+        var list = tag.getList(key, Tag.TAG_COMPOUND);
+        for (var i = 0; i < list.size(); i++) {
+            var entry = list.getCompound(i);
+            if (entry.hasUUID("Id"))
+                target.add(entry.getUUID("Id"));
+        }
+    }
 
-        var current = activeChariots.size() + virtualPop.getVirtualChariots()
-            + activeWorkers.size() + virtualPop.getVirtualWorkers()
-            + activeWarriors.size() + virtualPop.getVirtualWarriors()
-            + activeHoppers.size() + virtualPop.getVirtualHoppers();
+    public CompoundTag save() {
+        var tag = new CompoundTag();
 
-        var progress = Math.clamp((float) current / maxMembers, 0.0f, 1.0f);
-        bossBar.setProgress(progress);
-        bossBar.setVisible(!disbandPending);
+        tag.put("Bounds", bounds.save());
+        tag.putString("State", state.name());
+        tag.putBoolean("DisbandPending", disbandPending);
+        tag.putBoolean("InitialSpawnDone", initialSpawnDone);
+
+        tag.put("ActiveWorkers", saveUuidSet(activeWorkers));
+        tag.put("ActiveWarriors", saveUuidSet(activeWarriors));
+        tag.put("ActiveHoppers", saveUuidSet(activeHoppers));
+        tag.put("ActiveChariots", saveUuidSet(activeChariots));
+
+        tag.put("VirtualPopulation", virtualPop.save());
+        tag.put("Regen", regen.save());
+        tag.put("Threats", threatEval.save());
+        tag.put("BlockStore", blockStore.save());
+        tag.put("DomeBuilder", domeBuilder.save());
+
+        return tag;
+    }
+
+    public static BugColony load(BrainBug brain, CompoundTag tag, ServerLevel level) {
+        var colony = new BugColony(brain);
+
+        if (tag.contains("Bounds", Tag.TAG_COMPOUND))
+            colony.bounds = ColonyBounds.load(tag.getCompound("Bounds"));
+
+        if (tag.contains("State", Tag.TAG_STRING)) {
+            try {
+                colony.state = ColonyState.valueOf(tag.getString("State"));
+            } catch (IllegalArgumentException ignored) {
+                colony.state = ColonyState.PEACEFUL;
+            }
+        }
+
+        colony.disbandPending = tag.getBoolean("DisbandPending");
+        colony.initialSpawnDone = tag.getBoolean("InitialSpawnDone");
+
+        loadUuidSet(tag, "ActiveWorkers", colony.activeWorkers);
+        loadUuidSet(tag, "ActiveWarriors", colony.activeWarriors);
+        loadUuidSet(tag, "ActiveHoppers", colony.activeHoppers);
+        loadUuidSet(tag, "ActiveChariots", colony.activeChariots);
+
+        if (tag.contains("VirtualPopulation", Tag.TAG_COMPOUND))
+            colony.virtualPop.load(tag.getCompound("VirtualPopulation"));
+
+        if (tag.contains("Regen", Tag.TAG_COMPOUND))
+            colony.regen.load(tag.getCompound("Regen"));
+
+        if (tag.contains("Threats", Tag.TAG_COMPOUND))
+            colony.threatEval.load(tag.getCompound("Threats"), level);
+
+        if (tag.contains("BlockStore", Tag.TAG_COMPOUND))
+            colony.blockStore.load(tag.getCompound("BlockStore"));
+
+        if (tag.contains("DomeBuilder", Tag.TAG_COMPOUND))
+            colony.domeBuilder.load(tag.getCompound("DomeBuilder"));
+
+        colony.updateBossBar();
+        return colony;
     }
 }

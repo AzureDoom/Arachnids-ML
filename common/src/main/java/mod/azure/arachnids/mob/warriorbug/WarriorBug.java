@@ -167,7 +167,7 @@ public class WarriorBug extends Monster implements WallCrawlingMob {
         if (hurt && !this.level().isClientSide()) {
             BugColony colony = ColonyManager.get().colonyOf(this);
             if (colony != null)
-                colony.onMemberHurt(this, source, amount);
+                colony.onMemberHurt(source, amount);
         }
         return hurt;
     }

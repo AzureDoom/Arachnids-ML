@@ -32,7 +32,19 @@ public final class AiKeys {
 
     public static final String DESTINATION = "destination";
 
+    public static final String WORKER_BUILD_TASK = "worker_build_task";
+
+    public static final String WORKER_BUILD_TIMER = "worker_build_timer";
+
+    public static final String SAPPER_CURRENT_BLOCK = "sapper_current_block";
+
+    public static final String SAPPER_DIG_TIMER = "sapper_dig_timer";
+
+    public static final String SAPPER_TARGET_SNAP = "sapper_target_snap";
+
     public static final String WALL_CRAWLING = "wall_crawling";
+
+    public static final String DIG_BATCH_COUNT = "dig_batch_count";
 
     private AiKeys() {}
 }

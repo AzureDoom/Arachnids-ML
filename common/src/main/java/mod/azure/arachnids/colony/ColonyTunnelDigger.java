@@ -14,9 +14,9 @@ public final class ColonyTunnelDigger {
 
     private static final int SHAFT_IRREGULARITY = 2;
 
-    private static final int SHAFT_COUNT = 3;
+    private static final int SHAFT_COUNT = 8;
 
-    private static final int SHAFT_SPREAD = 8;
+    private static final int SHAFT_SPREAD = 32;
 
     private static final float CHAMBER_CHANCE = 0.08F;
 
@@ -70,20 +70,20 @@ public final class ColonyTunnelDigger {
         var shaftW = MIN_SHAFT_SIZE + rng.nextInt(SHAFT_IRREGULARITY + 1);
         var shaftD = MIN_SHAFT_SIZE + rng.nextInt(SHAFT_IRREGULARITY + 1);
 
-        for (var y = base.getY(); y <= surfaceY + 1; y++) {
-            var wVar = shaftW + (rng.nextInt(3) - 1);
-            var dVar = shaftD + (rng.nextInt(3) - 1);
-            var hw = wVar / 2;
-            var hd = dVar / 2;
+        var hw = shaftW / 2;
+        var hd = shaftD / 2;
 
-            for (var dx = -hw; dx <= hw; dx++) {
-                for (var dz = -hd; dz <= hd; dz++) {
-                    digQueue.add(base.offset(dx, y - base.getY(), dz));
+        for (var dx = -hw; dx <= hw; dx++) {
+            for (var dz = -hd; dz <= hd; dz++) {
+                for (var y = base.getY(); y <= surfaceY + 1; y++) {
+                    digQueue.add(new BlockPos(base.getX() + dx, y, base.getZ() + dz));
                 }
             }
+        }
 
+        for (var y = base.getY(); y <= surfaceY + 1; y++) {
             if (rng.nextFloat() < CHAMBER_CHANCE) {
-                planChamber(base.offset(0, y - base.getY(), 0), hw, hd, rng);
+                planChamber(new BlockPos(base.getX(), y, base.getZ()), hw, hd, rng);
             }
         }
 
@@ -113,8 +113,14 @@ public final class ColonyTunnelDigger {
         }
     }
 
-    public BlockPos claimNextDigTask(ServerLevel level) {
-        while (!digQueue.isEmpty()) {
+    public BlockPos claimNextDigTask(ServerLevel level, BlockPos workerPos) {
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+
+        var skipped = new ArrayList<BlockPos>();
+        var checks = digQueue.size();
+
+        while (checks-- > 0 && !digQueue.isEmpty()) {
             var pos = digQueue.poll();
 
             if (!level.isLoaded(pos))
@@ -123,11 +129,41 @@ public final class ColonyTunnelDigger {
             if (!canBreak(level, pos))
                 continue;
 
-            claimed.add(pos);
-            return pos;
+            if (isTooCloseToClaimed(pos)) {
+                skipped.add(pos);
+                continue;
+            }
+
+            var dist = pos.distSqr(workerPos);
+            if (dist < bestDist) {
+                if (best != null)
+                    skipped.add(best);
+
+                best = pos;
+                bestDist = dist;
+            } else {
+                skipped.add(pos);
+            }
+        }
+
+        for (var pos : skipped) {
+            digQueue.addLast(pos);
+        }
+
+        if (best != null) {
+            claimed.add(best);
+            return best;
         }
 
         return null;
+    }
+
+    private boolean isTooCloseToClaimed(BlockPos pos) {
+        for (var other : claimed) {
+            if (other.distSqr(pos) < 36D)
+                return true;
+        }
+        return false;
     }
 
     public void completeTask(BlockPos pos) {
@@ -139,7 +175,7 @@ public final class ColonyTunnelDigger {
             return;
 
         claimed.remove(pos);
-        digQueue.addFirst(pos);
+        digQueue.addLast(pos);
     }
 
     private boolean canBreak(ServerLevel level, BlockPos pos) {

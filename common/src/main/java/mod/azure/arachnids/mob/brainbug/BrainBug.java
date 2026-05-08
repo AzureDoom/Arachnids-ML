@@ -149,7 +149,7 @@ public class BrainBug extends PathfinderMob {
 
             var colony = ColonyManager.get().get(this);
             if (colony != null) {
-                colony.onMemberHurt(this, source, amount);
+                colony.onMemberHurt(source, amount);
             }
         }
 

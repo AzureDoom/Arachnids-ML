@@ -3,6 +3,8 @@ package mod.azure.arachnids.mob.chariotbug;
 import net.minecraft.world.entity.LivingEntity;
 
 import mod.azure.arachnids.ai.actions.*;
+import mod.azure.arachnids.ai.actions.colony.ColonyStayInsideAction;
+import mod.azure.arachnids.ai.core.ActionStatus;
 import mod.azure.arachnids.ai.core.AiKeys;
 import mod.azure.arachnids.ai.core.BehaviorNode;
 import mod.azure.arachnids.ai.core.BehaviorResult;
@@ -19,6 +21,8 @@ public class ChariotBugTree {
             FLEE_SAFE_DISTANCE,
             120
         );
+
+        var stayInside = new ColonyStayInsideAction<ChariotBug>(90);
 
         var seek = new SeekBrainBugAction(
             0.14D,
@@ -49,6 +53,10 @@ public class ChariotBugTree {
                 return BehaviorResult.run(fleeExplosive, 120);
             }
 
+            if (stayInside.tick(mob, blackboard, cooldowns) == ActionStatus.RUNNING) {
+                return BehaviorResult.run(stayInside, 90);
+            }
+
             var threat = blackboard.get(AiKeys.TARGET, LivingEntity.class);
             var hasThreat = threat != null && threat.isAlive();
             var isCarrying = BrainBugCarrySystem.get().isRegistered(mob);
@@ -65,7 +73,7 @@ public class ChariotBugTree {
                 return BehaviorResult.run(seek, 30);
             }
 
-            return BehaviorResult.run(wander, 10);
+            return BehaviorResult.run(seek, 30);
         };
     }
 }

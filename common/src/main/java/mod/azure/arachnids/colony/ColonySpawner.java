@@ -67,7 +67,7 @@ public final class ColonySpawner {
         if (entity == null)
             return null;
 
-        entity.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, rng.nextFloat() * 360, 0);
+        entity.moveTo(pos.getX() + 0.5, pos.getY() + 5, pos.getZ() + 0.5, rng.nextFloat() * 360, 0);
         level.addFreshEntityWithPassengers(entity);
         return entity;
     }
